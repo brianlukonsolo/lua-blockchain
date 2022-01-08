@@ -1,4 +1,3 @@
-.idea/
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -9,5 +8,5 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
-.idea/workspace.xml
-.idea/workspace.xml
+.idea/*
+
