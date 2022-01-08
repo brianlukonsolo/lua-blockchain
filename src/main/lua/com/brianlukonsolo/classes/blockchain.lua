@@ -10,8 +10,12 @@ function _M.getWelcomeMessage()
  return "Hi Brian, your Lua module is working when imported into app.lua"
 end
 
-function _M.getSha256HashOf(string)
+function _M.getSha256HashOfString(string)
  return hashing.sha256(string)
+end
+
+function _M.getTimeStamp()
+ return os.date ("date %x time %H:%M:%S:%m")
 end
 
 return _M
