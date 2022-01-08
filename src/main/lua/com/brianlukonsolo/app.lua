@@ -3,7 +3,7 @@ local app = lapis.Application()
 local blockchain = require("classes.blockchain")
 
 app:get("/", function()
-  return "Welcome to Lapis " .. require("lapis.version")
+  return "Welcome to lua-blockchain. Running using lapis version " .. require("lapis.version")
 end)
 
 app:get("/hash", function()
