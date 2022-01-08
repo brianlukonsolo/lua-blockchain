@@ -6,9 +6,7 @@
  #### Local Docker environment
  - clone this repository and navigate into the cloned directory root
  - run the command `docker build . --tag lua-blockchain`
- - run the command `docker run -it -p 8080 lua-blockchain sh`
- - Once the container starts a shell, navigate into the 'lua-blockchain' directory of the container
- - run the command `lapis server` within the 'lua-blockchain' directory on the container
+ - run the command `docker run -it -p 8080 lua-blockchain`
  - check that the server is running by navigating to `http://127.0.0.1:8080/` on your local machine
  
 ### Technologies used:
