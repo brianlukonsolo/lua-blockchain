@@ -3,7 +3,7 @@
  
 ### Usage instructions:
  
- Install Docker
+ #### Local Docker environment
  - clone this repository and navigate into the cloned directory root
  - run the command `docker build . --tag lua-blockchain`
  - run the command `docker run -it -p 8080 lua-blockchain sh`
