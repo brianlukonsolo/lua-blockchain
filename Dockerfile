@@ -1,15 +1,17 @@
 FROM openresty/openresty
 
+LABEL version="1.0" \
+      maintainer="Brian M Lukonsolo"
+
 #setup
-ENV APPLICATION_NAME='lua-blockchain' \
-    LUAROCKS_INSTALL='/usr/bin/luarocks install' \
+COPY src/main/lua/com/brianlukonsolo/ /
+ENV LUAROCKS_INSTALL='/usr/bin/luarocks install' \
     APT_GET_INSTALL='apt-get -y install'
-WORKDIR /${APPLICATION_NAME}
 EXPOSE 8080/tcp
 
 # install luarocks and openssl
 RUN apt-get update &&\
-    ${APT_GET_INSTALL} luarocks libssl-dev openssl
+    ${APT_GET_INSTALL} luarocks libssl-dev openssl vim
 
 # install lapis and its dependencies
 RUN ${LUAROCKS_INSTALL} ansicolors &&\
@@ -24,6 +26,4 @@ RUN ${LUAROCKS_INSTALL} ansicolors &&\
     ${LUAROCKS_INSTALL} luaossl CRYPTO_DIR=/usr/ ##OPENSSL_LIBDIR=OPENSSL_DIR=/usr/include/openssl/
 RUN ${LUAROCKS_INSTALL} lapis
 
-COPY src/main/lua/com/brianlukonsolo/ lua-blockchain/
-
-# ENTRYPOINT ["lapis", "serve"]
+ENTRYPOINT ["lapis", "server"]
