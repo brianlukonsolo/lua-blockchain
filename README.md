@@ -1,7 +1,7 @@
 # lua-blockchain by Brian Lukonsolo
  A personal Lua project where I attempt to create a basic blockchain running using Lua code within a Docker openresty/nginx container environment.
  
-### Installation instructions:
+### Usage instructions:
  
  Install Docker
  - clone this repository and navigate into the cloned directory root
