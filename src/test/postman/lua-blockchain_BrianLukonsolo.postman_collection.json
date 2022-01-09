@@ -1,0 +1,79 @@
+{
+	"info": {
+		"_postman_id": "f86029a5-5d3f-46f3-9a41-a37b8dd681d1",
+		"name": "lua-blockchain_BrianLukonsolo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "hashing - default help endpoint",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/hashing/sha256/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"hashing",
+						"sha256",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "hashing a string - string provided",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/hashing/sha256/example_string",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"hashing",
+						"sha256",
+						"example_string"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "configuration info endpoint",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/configuration",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"configuration"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
