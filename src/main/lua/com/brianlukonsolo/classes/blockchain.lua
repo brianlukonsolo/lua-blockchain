@@ -9,7 +9,7 @@ local cjson = require("cjson")
 local hashOperationLeadingZeros = '0000'
 local _Blockchain = {}
 _Blockchain.chain = {}
-_Blockchain.name = "lua-blockchain"+
+_Blockchain.name = "lua-blockchain"
 _Blockchain.version = "1.0"
 
 --utility functions
