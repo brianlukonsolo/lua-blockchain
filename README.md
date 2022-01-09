@@ -18,12 +18,12 @@
 
 ### Project dependencies:
 
- - Lua version 5.1.5
+ - Lua version 5.1.5 (for main code logic)
  - luarocks version 2.4.2
  - libssl-dev
  - openssl version 1.1.1k 25 Mar 2021
  
- - lapis version 1.9.0-1
+ - lapis version 1.9.0-1 (for HTTP API endpoint calls)
     - ansicolors    version 1.0.2-3
     - date          version 2.2-2
     - etlua         version 1.3.0-1
@@ -34,5 +34,7 @@
     - luasocket     version 1.1.0-1
     - pgmoon        version 1.1.0-1
     - luaossl       version 1.1.0-1
+
+ - busted version 2.0.0 (for unit testing)
 
 

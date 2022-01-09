@@ -4,18 +4,98 @@
 --- DateTime: 08/01/2022 18:58
 ---
 local hashing = require("cryptography.pure_lua_SHA.sha2")
-local _M = {}
+local cjson = require("cjson")
+--rules
+local hashOperationLeadingZeros = '0000'
+local _Blockchain = {}
+_Blockchain.chain = {}
+_Blockchain.name = "lua-blockchain"+
+_Blockchain.version = "1.0"
 
-function _M.getWelcomeMessage()
- return "Hi Brian, your Lua module is working when imported into app.lua"
+--utility functions
+function _Blockchain.getWelcomeMessage()
+    return "Hi Brian, your Lua module is working when imported into app.lua"
 end
 
-function _M.getSha256HashOfString(string)
- return hashing.sha256(string)
+function _Blockchain.getSha256HashOfString(string)
+    return hashing.sha256(string)
 end
 
-function _M.getTimeStamp()
- return os.date ("date %x time %H:%M:%S:%m")
+function _Blockchain.getTimeStamp()
+    return os.date("date %x time %H:%M:%S:%m")
 end
 
-return _M
+function _Blockchain.encodeTableToJson(table)
+    return cjson.encode(table)
+end
+
+-- blockchain methods
+function _Blockchain.createBlock(proofInt, previousHashHexString)
+    local block = {
+        index = #_Blockchain.chain + 1,
+        timestamp = _Blockchain.getTimeStamp(),
+        proof = proofInt,
+        previous_hash = previousHashHexString
+    }
+    return block
+end
+
+--used initialize the chain object before first use. Initially proof is one and previous hash is zero by convention
+function _Blockchain.init()
+    return _Blockchain.createBlock(1, 0)
+end
+
+function _Blockchain.getPreviousBlock()
+    return _Blockchain.chain[#_Blockchain.chain] -- get last (most recent) block in the table
+end
+
+function _Blockchain.proofOfWork(previousProof)
+    local newProof = 1
+    local checkProof = false
+
+    while checkProof == false do
+        local hashOperation = _Blockchain.getSha256HashOfString(tostring(newProof * 2 ^ 2 - previousProof * 2 ^ 2))
+        -- As soon as we find the operation that results in a hash with 4 leading zeroes, the miner wins
+        -- The more leading zeroes required, the harder it is to mine a block
+        if string.sub(hashOperation,1,4) == hashOperationLeadingZeros then
+            --TODO ^ensure hash operation^ can equal 0000
+            checkProof = true
+        else
+            newProof = newProof + 1
+        end
+    end
+    return newProof
+end
+
+function _Blockchain.hash(block)
+    return _Blockchain.getSha256HashOfString(
+            tostring(_Blockchain.encodeTableToJson(block))
+    )
+end
+
+function _Blockchain.isChainValid(chain)
+    local previousBlock = _Blockchain.chain[#_Blockchain.chain]
+    local blockIndex = 1
+
+    while blockIndex < #_Blockchain.chain do
+        local block = _Blockchain.chain[blockIndex]
+        -- if the previous hash of the current block is not the same as the previous block, there is a problem
+        if block.previous_hash ~= _Blockchain.hash(previousBlock) then
+            return false
+        end
+        -- if proof starts with 4 leading zeroes (see get_proof_of_work) it is valid
+        local previousProof = previousBlock.proof
+        local proof = block.proof
+        local hashOperation = _Blockchain.getSha256HashOfString(tostring(newProof * 2 ^ 2 - previousProof * 2 ^ 2))
+        if string.sub(hashOperation,1,4) ~= hashOperationLeadingZeros then
+            --TODO ^ensure hash operation can equal 0000
+            return false
+        end
+        previousBlock = block
+        blockIndex = blockIndex + 1
+    end
+
+    return true
+end
+
+return _Blockchain

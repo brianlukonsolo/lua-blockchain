@@ -1,10 +1,32 @@
 {
 	"info": {
-		"_postman_id": "f86029a5-5d3f-46f3-9a41-a37b8dd681d1",
+		"_postman_id": "f19314c4-46c5-45f0-a969-83a2701f8e35",
 		"name": "lua-blockchain_BrianLukonsolo",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
+		{
+			"name": "default landing page no path",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						""
+					]
+				}
+			},
+			"response": []
+		},
 		{
 			"name": "hashing - default help endpoint",
 			"request": {
@@ -70,6 +92,94 @@
 					"port": "8080",
 					"path": [
 						"configuration"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "error scenario",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/this_path_does_not_exist",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"this_path_does_not_exist"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get blockchain",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/get_chain",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"get_chain"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "mine a new block (NEEDS FIXING)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/mine_block",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"mine_block"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "validate blockchain",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/validate_chain",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8080",
+					"path": [
+						"validate_chain"
 					]
 				}
 			},

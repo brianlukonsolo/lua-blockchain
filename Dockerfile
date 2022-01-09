@@ -5,6 +5,7 @@ LABEL version="1.0" \
 
 #setup
 COPY src/main/lua/com/brianlukonsolo/ /
+COPY src/test/ /lua-blockchain-tests/
 ENV LUAROCKS_INSTALL='/usr/bin/luarocks install' \
     APT_GET_INSTALL='apt-get -y install'
 EXPOSE 8080/tcp
@@ -25,5 +26,7 @@ RUN ${LUAROCKS_INSTALL} ansicolors 1.0.2-3 &&\
     ${LUAROCKS_INSTALL} pgmoon 1.13.0-1 &&\
     ${LUAROCKS_INSTALL} luaossl 20200709-0 CRYPTO_DIR=/usr/ ##OPENSSL_LIBDIR=OPENSSL_DIR=/usr/include/openssl/
 RUN ${LUAROCKS_INSTALL} lapis 1.9.0-1
+# install busted unit testing framework
+RUN ${LUAROCKS_INSTALL} busted 2.0.0
 
 ENTRYPOINT ["lapis", "server"]
