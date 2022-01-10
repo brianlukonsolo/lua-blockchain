@@ -80,3 +80,5 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 /.idea/
+src/main/lua/com/brianlukonsolo/nginx.conf.compiled
+src/main/lua/com/brianlukonsolo/logs
