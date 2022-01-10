@@ -5,9 +5,17 @@ local blockchain = require("classes.blockchain")
 --initialize the blockchain with a name and version
 blockchain.chain = blockchain.readBlockchainFromFile()
 print("### chain items: " ..  #blockchain.chain)
-if #blockchain.chain < 1 then
-    blockchain.init()
+if #blockchain.chain < 1 or blockchain.chain == nil then
+    blockchain.init() --TODO:// if starting with empty table, the initial block generates an error and the 2 block's previous_hash is wrong. From then onwards all hashes are correct
 end
+--TODO: ensure that the initial block is added to the json file with the correct structure etc, perhaps make a class?
+--[[
+TODO: mining the initial block generates an error but correctly creates a block to replace the default file contents
+{
+    "error": "./app.lua:59: attempt to index local 'previousBlock' (a nil value)",
+    "stacktrace": "\nstack traceback:\n\t./app.lua:59: in function 'handler'\n\t/usr/local/share/lua/5.1/lapis/application.lua:147: in function 'resolve'\n\t/usr/local/share/lua/5.1/lapis/application.lua:184: in function </usr/local/share/lua/5.1/lapis/application.lua:182>\n\t[C]: in function 'xpcall'\n\t/usr/local/share/lua/5.1/lapis/application.lua:190: in function 'dispatch'\n\t/usr/local/share/lua/5.1/lapis/nginx.lua:231: in function 'serve'\n\tcontent_by_lua(nginx.conf.compiled:22):2: in main chunk"
+}
+--]]
 
 --override error stacktrace function
 function app:handle_error(err, trace)
