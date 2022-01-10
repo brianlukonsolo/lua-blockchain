@@ -3,7 +3,11 @@ local config = require("lapis.config").get()
 local app = lapis.Application()
 local blockchain = require("classes.blockchain")
 --initialize the blockchain with a name and version
-table.insert(blockchain.chain, blockchain.init())
+blockchain.chain = blockchain.readBlockchainFromFile()
+print("### chain items: " ..  #blockchain.chain)
+if #blockchain.chain < 1 then
+    blockchain.init()
+end
 
 --override error stacktrace function
 function app:handle_error(err, trace)
@@ -49,6 +53,7 @@ end)
 
 --blockchain endpoints
 app:get("/mine_block", function()
+    print("blockchain is >>>>> " .. tostring(blockchain.chain))
     --first need the proof from the last block in the chain
     local previousBlock = blockchain.getPreviousBlock()
     local previousProof = previousBlock.proof

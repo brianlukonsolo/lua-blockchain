@@ -1,0 +1,1 @@
+docker build . --tag 'lua_blockchain' && docker system prune --force

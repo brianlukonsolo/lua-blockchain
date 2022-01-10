@@ -5,12 +5,14 @@
 ---
 local hashing = require("cryptography.pure_lua_SHA.sha2")
 local cjson = require("cjson")
+local util = require "cjson.util"
 --rules
 local hashOperationLeadingZeros = '0000'
 local _Blockchain = {}
 _Blockchain.chain = {}
 _Blockchain.name = "lua-blockchain"
 _Blockchain.version = "1.0"
+_Blockchain.file_name = "blockchain_data.json"
 
 --utility functions
 function _Blockchain.getWelcomeMessage()
@@ -29,27 +31,59 @@ function _Blockchain.encodeTableToJson(table)
     return cjson.encode(table)
 end
 
+function _Blockchain.saveBlockchainToFile(t, filename)
+    print("### saving blockchain to file ...")
+    local path = filename
+    local file = io.open(path, "w")
+
+    if file then
+        local contents = cjson.encode(t)
+        file:write( contents )
+        io.close( file )
+        print("========> " .. tostring(contents))
+        return true
+    else
+        return false
+    end
+end
+
+function _Blockchain.readBlockchainFromFile()
+    print("### loading blockchain from file ...")
+    local jsonText = util.file_load(_Blockchain.file_name)
+    local jsonBlockchainObj = cjson.decode(jsonText)
+
+    return jsonBlockchainObj
+end
+
 -- blockchain methods
 function _Blockchain.createBlock(proofInt, previousHashHexString)
+    print("### creating new block ...")
     local block = {
         index = #_Blockchain.chain + 1,
         timestamp = _Blockchain.getTimeStamp(),
         proof = proofInt,
         previous_hash = previousHashHexString
     }
+    local chain = _Blockchain.readBlockchainFromFile()
+    table.insert(chain, block)
+    _Blockchain.saveBlockchainToFile(chain, _Blockchain.file_name)
+
     return block
 end
 
 --used initialize the chain object before first use. Initially proof is one and previous hash is zero by convention
 function _Blockchain.init()
+    print("### initialising blockchain ...")
     return _Blockchain.createBlock(1, 0)
 end
 
 function _Blockchain.getPreviousBlock()
+    print("### getting previous block ...")
     return _Blockchain.chain[#_Blockchain.chain] -- get last (most recent) block in the table
 end
 
 function _Blockchain.proofOfWork(previousProof)
+    print("### getting proof of work ...")
     local newProof = 1
     local checkProof = false
 
@@ -68,12 +102,14 @@ function _Blockchain.proofOfWork(previousProof)
 end
 
 function _Blockchain.hash(block)
+    print("### calculating hash value ...")
     return _Blockchain.getSha256HashOfString(
             tostring(_Blockchain.encodeTableToJson(block))
     )
 end
 
 function _Blockchain.isChainValid(chain)
+    print("### validating blockchain ...")
     local previousBlock = _Blockchain.chain[#_Blockchain.chain]
     local blockIndex = 1
 

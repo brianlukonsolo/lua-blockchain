@@ -12,7 +12,7 @@ EXPOSE 8080/tcp
 
 # install luarocks and openssl
 RUN apt-get update &&\
-    ${APT_GET_INSTALL} luarocks libssl-dev openssl vim
+    ${APT_GET_INSTALL} luarocks libssl-dev openssl vim git
 
 # install lapis and its dependencies
 RUN ${LUAROCKS_INSTALL} ansicolors 1.0.2-3 &&\
@@ -28,5 +28,5 @@ RUN ${LUAROCKS_INSTALL} ansicolors 1.0.2-3 &&\
 RUN ${LUAROCKS_INSTALL} lapis 1.9.0-1
 # install busted unit testing framework
 RUN ${LUAROCKS_INSTALL} busted 2.0.0
-
-ENTRYPOINT ["lapis", "server"]
+#
+#ENTRYPOINT ["lapis", "server"]
