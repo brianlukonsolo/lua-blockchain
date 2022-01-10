@@ -6,7 +6,8 @@ local blockchain = require("classes.blockchain")
 blockchain.chain = blockchain.readBlockchainFromFile()
 print("### chain items: " ..  #blockchain.chain)
 if #blockchain.chain < 1 or blockchain.chain == nil then
-    blockchain.init() --TODO:// if starting with empty table, the initial block generates an error and the 2 block's previous_hash is wrong. From then onwards all hashes are correct
+    blockchain.init() --TODO:// if starting with empty table, the initial block generates an error and the 2 block's previous_hash is wrong. From then onwards all hashes are correct.
+    --TODO: ^the actual issue is the json items are not being saved in a static ordered fashion so when the keys change positions the hash is different -_- FIX IT haha
 end
 --TODO: ensure that the initial block is added to the json file with the correct structure etc, perhaps make a class?
 --[[
