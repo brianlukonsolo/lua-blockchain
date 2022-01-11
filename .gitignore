@@ -82,3 +82,8 @@ fabric.properties
 /.idea/
 src/main/lua/com/brianlukonsolo/nginx.conf.compiled
 src/main/lua/com/brianlukonsolo/logs
+/src/main/lua/com/brianlukonsolo/proxy_temp/
+/src/main/lua/com/brianlukonsolo/scgi_temp/
+/src/main/lua/com/brianlukonsolo/uwsgi_temp/
+/src/main/lua/com/brianlukonsolo/client_body_temp/
+/src/main/lua/com/brianlukonsolo/fastcgi_temp/
