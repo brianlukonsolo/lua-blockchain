@@ -2,11 +2,11 @@ version: "3.0"
 
 services:
   lua_blockchain:
-    container_name: "lua_blockchain_1"
-    image: lua_blockchain:latest
+    container_name: "lua-blockchain-instance"
+    image: "lua_blockchain:latest"
     tty: true
     ports:
-      - "8080:8080"
+      - 8080:8080
     volumes:
       - ./src/main/lua/com/brianlukonsolo:/brianlukonsolo
     command: "sh -c 'cd brianlukonsolo && lapis server'"

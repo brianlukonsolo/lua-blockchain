@@ -6,9 +6,9 @@
  #### Local Docker environment
  - clone this repository and navigate into the cloned directory root
  - if you haven't built the image already, run the build script `./docker-build.sh`
- - run the start script to spin up the infrastructure `./docker-start.sh`
+ - run the start script to spin up the infrastructure `./start.sh`
  - check that the server is running by navigating to `http://127.0.0.1:8080/` on your local machine
- - to destroy the infrastructure and automatically cleanup, run the stop script `./docker-stop.sh`
+ - to destroy the infrastructure and automatically cleanup, run the stop script `./stop.sh`
  
 ### Technologies used:
  

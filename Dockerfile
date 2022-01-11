@@ -3,7 +3,7 @@ FROM openresty/openresty
 LABEL version="1.0" \
       maintainer="Brian M Lukonsolo"
 
-#setup
+# setup
 COPY src/main/lua/com/brianlukonsolo/ /
 COPY src/test/ /lua-blockchain-tests/
 ENV LUAROCKS_INSTALL='/usr/bin/luarocks install' \
@@ -28,5 +28,3 @@ RUN ${LUAROCKS_INSTALL} ansicolors 1.0.2-3 &&\
 RUN ${LUAROCKS_INSTALL} lapis 1.9.0-1
 # install busted unit testing framework
 RUN ${LUAROCKS_INSTALL} busted 2.0.0
-#
-#ENTRYPOINT ["lapis", "server"]

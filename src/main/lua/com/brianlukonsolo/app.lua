@@ -49,7 +49,7 @@ end)
 
 --hashing endpoints
 app:get("/hashing/sha256", function()
-    local response = { message = 'use the url format: http://example-host:port/sha256/{string}' }
+    local response = { message = 'use the url format: http://example-host:port/hashing/sha256/{string}' }
 
     return { content_type = "application/json", json = response }
 end)
