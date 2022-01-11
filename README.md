@@ -5,9 +5,10 @@
  
  #### Local Docker environment
  - clone this repository and navigate into the cloned directory root
- - run the command `docker build . --tag lua-blockchain`
- - run the command `docker run -it -p 8080 lua-blockchain`
+ - if you haven't built the image already, run the build script `./docker-build.sh`
+ - run the start script to spin up the infrastructure `./docker-start.sh`
  - check that the server is running by navigating to `http://127.0.0.1:8080/` on your local machine
+ - to destroy the infrastructure and automatically cleanup, run the stop script `./docker-stop.sh`
  
 ### Technologies used:
  
