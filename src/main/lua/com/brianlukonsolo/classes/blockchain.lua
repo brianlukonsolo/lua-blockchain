@@ -151,11 +151,11 @@ tostring(
     )))
 end ]]
 
-
+ -- hash() replacement
 function _Blockchain.hash(block)
     LOG("### calculating hash value ... by string concatenating")
     LOG( "JSON ======>>> " .. tostring(block.previous_hash) .. block.index)
-    return _Blockchain.getSha256HashOfString(tostring(block.previous_hash .. block.index))
+    return _Blockchain.getSha256HashOfString(tostring(block.previous_hash .. block.index .. block.proof .. block.timestamp))
 end
 
 
