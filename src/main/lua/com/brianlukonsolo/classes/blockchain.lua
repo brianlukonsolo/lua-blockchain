@@ -138,7 +138,7 @@ function _Blockchain.proofOfWork(previousProof)
     return newProof
 end
 
-function _Blockchain.hash(block)
+--[[ function _Blockchain.hash(block)
     LOG("### calculating hash value ...")
     LOG( "JSON ======>>> " .. tostring(_Blockchain.encodeTableToJson(
             _Blockchain.convertToStandardBlock(block) --convert to avoid different hash caused by json key order
@@ -149,30 +149,44 @@ tostring(
                     _Blockchain.convertToStandardBlock(block) --convert to avoid different hash caused by json key order
             )
     )))
+end ]]
+
+
+function _Blockchain.hash(block)
+    LOG("### calculating hash value ... by string concatenating")
+    LOG( "JSON ======>>> " .. tostring(block.previous_hash) .. block.index)
+    return _Blockchain.getSha256HashOfString(tostring(block.previous_hash .. block.index))
 end
+
 
 function _Blockchain.isChainValid(chain)
     LOG("### validating blockchain ...")
-    local previousBlock = _Blockchain.chain[#_Blockchain.chain]
-    local blockIndex = 1
-
-    while blockIndex < #_Blockchain.chain do
+ --   local previousBlock = _Blockchain.chain[#_Blockchain.chain]
+ --   local blockIndex = 1
+   
+    local blockIndex = #_Blockchain.chain
+    local previousBlock = _Blockchain.chain[blockIndex - 1]
+    
+    while blockIndex > 1  do
         local block = _Blockchain.chain[blockIndex]
         LOG("### previousHash: " .. block.previous_hash)
         -- if the previous hash of the current block is not the same as the previous block, there is a problem
         if block.previous_hash ~= _Blockchain.hash(previousBlock) then
             return false
         end
+        LOG("##############  validationcheck : " .. blockIndex .. "  :: TRUE")
         -- if proof starts with 4 leading zeroes (see get_proof_of_work) it is valid
-        local previousProof = previousBlock.proof
+        --[[ local previousProof = previousBlock.proof
         --local proof = block.proof
+
         local hashOperation = _Blockchain.getSha256HashOfString(tostring(newProof * 2 ^ 2 - previousProof * 2 ^ 2))
         if string.sub(hashOperation,1,4) ~= hashOperationLeadingZeros then
             --TODO ^ensure hash operation can equal 0000
             return false
-        end
-        previousBlock = block
-        blockIndex = blockIndex + 1
+        end ]]
+        LOG("### BLOCK INDEX previousHash: " .. blockIndex)
+        blockIndex = blockIndex - 1
+        previousBlock = _Blockchain.chain[blockIndex - 1]
     end
 
     return true
