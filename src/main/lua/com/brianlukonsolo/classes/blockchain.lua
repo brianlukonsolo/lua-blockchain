@@ -46,23 +46,6 @@ function _Blockchain.convertToStandardBlock(blockWithKeysInWrongOrder)
 
     return blockWithKeysInOrder
 end
---
---function _Blockchain.convertStandardBlockToSortedBlockJsonString(block)
---    local stringStart = '{'
---    local endOfString = '}'
---    local sortedTable = {}
---
---    for key in pairs(block) do table.insert(sortedTable, key) end
---    table.sort(sortedTable)
---    for index,key2 in ipairs(sortedTable) do
---        sortedTable[key2]=block[key2]
---        stringStart = stringStart .. "\"" .. key2 .. "\":" .. "\"" .. block[key2] .. "\","
---    end
---    local strWithTrailingComma = stringStart .. endOfString
---    local str = string.sub(strWithTrailingComma, 1, #strWithTrailingComma-2) .. "}"
---
---    return str
---end
 
 function _Blockchain.saveBlockchainToFile(t, filename)
     LOG("### saving blockchain to file ...")
@@ -78,7 +61,6 @@ function _Blockchain.saveBlockchainToFile(t, filename)
         local contents = cjson.encode(t)
         file:write( contents )
         io.close( file )
-        LOG("========> " .. tostring(contents))
         return true
     else
         return false
@@ -138,53 +120,30 @@ function _Blockchain.proofOfWork(previousProof)
     return newProof
 end
 
---[[ function _Blockchain.hash(block)
-    LOG("### calculating hash value ...")
-    LOG( "JSON ======>>> " .. tostring(_Blockchain.encodeTableToJson(
-            _Blockchain.convertToStandardBlock(block) --convert to avoid different hash caused by json key order
-    )))
-    return _Blockchain.getSha256HashOfString(
-tostring(
-        _Blockchain.encodeTableToJson((
-                    _Blockchain.convertToStandardBlock(block) --convert to avoid different hash caused by json key order
-            )
-    )))
-end ]]
-
- -- hash() replacement
 function _Blockchain.hash(block)
-    LOG("### calculating hash value ... by string concatenating")
-    LOG( "JSON ======>>> " .. tostring(block.previous_hash) .. block.index)
+    LOG("### calculating hash value of concatenated block values")
     return _Blockchain.getSha256HashOfString(tostring(block.previous_hash .. block.index .. block.proof .. block.timestamp))
 end
 
 
 function _Blockchain.isChainValid(chain)
-    LOG("### PRINTING LAST CHAIN ITEM PROOF: " .. chain[#chain].proof)
+    LOG("### validating blockchain ...")
     local previousBlock = _Blockchain.chain[1]
     local blockIndex = 2
-    LOG("### PRINTING BLOCKINDEX: " .. blockIndex)
-    LOG("### PRINTING NUMBEROFBLOCKCHAINITEMS: " .. tostring(#_Blockchain.chain))
 
     while blockIndex < #_Blockchain.chain do
-        LOG("### Entered blockchain loop")
         local block = _Blockchain.chain[blockIndex]
         -- if the previous hash of the current block is not the same as the previous block, there is a problem
-        LOG("### Block 1 is = " .. block.index)
-        LOG("### Block 2 is = " .. previousBlock.index)
         if block.previous_hash ~= _Blockchain.hash(previousBlock) then
-            LOG("### RETURNING FALSE 1")
             return false
         end
         -- if proof starts with 4 leading zeroes (see get_proof_of_work) it is valid
         local previousProof = previousBlock.proof
         local newProof = block.proof
-        LOG("### PRINTING PROOF: " .. chain[#chain].proof)
         local hashOperation = _Blockchain.getSha256HashOfString(tostring(newProof * 2 ^ 2 - previousProof * 2 ^ 2))
-        LOG("### PRINTING HASHOPERATION PROOF: " .. chain[#chain].proof)
+
         if string.sub(hashOperation,1,4) ~= hashOperationLeadingZeros then
             --TODO ^ensure hash operation can equal 0000
-            LOG("### RETURNING FALSE 2 ")
             return false
         end
         previousBlock = block
