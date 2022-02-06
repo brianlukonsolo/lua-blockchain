@@ -108,8 +108,9 @@ app:get("/validate_chain", function()
 end)
 
 -- calls to the central blockchain server
+--TODO: set up server that stores the most recent blockchain. This will be fun and requires multi-node coordination
 app:get("/get_remote_chain", function()
-    --TODO: set up server that stores the most recent blockchain. This will be fun and requires multi-node coordination
+    --TODO: logic to sync changes from remote onto the local chain once consensus reached
     local response = requests.sendGetRequest("https://www.google.com") --TODO: replace url with actual blockchain core url
 
     return { content_type = "application/json", json = {body = response.responseBody} }
