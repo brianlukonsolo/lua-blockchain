@@ -2,6 +2,8 @@ local lapis = require("lapis")
 local config = require("lapis.config").get()
 local app = lapis.Application()
 local blockchain = require("classes.blockchain")
+local requests = require("classes.requests")
+
 --initialize the blockchain with a name and version
 blockchain.chain = blockchain.readBlockchainFromFile()
 print("### chain items: " ..  #blockchain.chain)
@@ -103,6 +105,33 @@ app:get("/validate_chain", function()
     local response = { message = messageString }
 
     return { content_type = "application/json", json = response }
+end)
+
+-- calls to the central blockchain server
+--TODO: set up server that stores the most recent blockchain. This will be fun and requires multi-node coordination
+app:get("/get_remote_chain", function()
+    --TODO: logic to sync changes from remote onto the local chain once consensus reached
+    local response = requests.sendGetRequest("https://www.google.com") --TODO: replace url with actual blockchain core url
+
+    return { content_type = "application/json", json = {body = response.responseBody} }
+end)
+
+app:get("/compare_remote_chain", function()
+    --TODO: logic to compare the two chains, local and remote and identify the differences etc... os.execute('git diff a.json b.json') ???
+
+    return { content_type = "application/json", json = {body = "TODO - coming soon!"} }
+end)
+
+app:get("/sync_remote_chain", function()
+    --TODO: logic to sync changes from remote onto the local chain once consensus reached
+
+    return { content_type = "application/json", json = {body = "TODO - coming soon!"} }
+end)
+
+app:get("/vote_block", function()
+    --TODO: logic to enable the node to immediately confirm or deny the presence of a transaction on its local chain and on the remote
+
+    return { content_type = "application/json", json = {body = "TODO - coming soon!"} }
 end)
 
 return app
