@@ -160,33 +160,35 @@ end
 
 
 function _Blockchain.isChainValid(chain)
-    LOG("### validating blockchain ...")
- --   local previousBlock = _Blockchain.chain[#_Blockchain.chain]
- --   local blockIndex = 1
-   
-    local blockIndex = #_Blockchain.chain
-    local previousBlock = _Blockchain.chain[blockIndex - 1]
-    
-    while blockIndex > 1  do
+    LOG("### PRINTING LAST CHAIN ITEM PROOF: " .. chain[#chain].proof)
+    local previousBlock = _Blockchain.chain[1]
+    local blockIndex = 2
+    LOG("### PRINTING BLOCKINDEX: " .. blockIndex)
+    LOG("### PRINTING NUMBEROFBLOCKCHAINITEMS: " .. tostring(#_Blockchain.chain))
+
+    while blockIndex < #_Blockchain.chain do
+        LOG("### Entered blockchain loop")
         local block = _Blockchain.chain[blockIndex]
-        LOG("### previousHash: " .. block.previous_hash)
         -- if the previous hash of the current block is not the same as the previous block, there is a problem
+        LOG("### Block 1 is = " .. block.index)
+        LOG("### Block 2 is = " .. previousBlock.index)
         if block.previous_hash ~= _Blockchain.hash(previousBlock) then
+            LOG("### RETURNING FALSE 1")
             return false
         end
-        LOG("##############  validationcheck : " .. blockIndex .. "  :: TRUE")
         -- if proof starts with 4 leading zeroes (see get_proof_of_work) it is valid
-        --[[ local previousProof = previousBlock.proof
-        --local proof = block.proof
-
+        local previousProof = previousBlock.proof
+        local newProof = block.proof
+        LOG("### PRINTING PROOF: " .. chain[#chain].proof)
         local hashOperation = _Blockchain.getSha256HashOfString(tostring(newProof * 2 ^ 2 - previousProof * 2 ^ 2))
+        LOG("### PRINTING HASHOPERATION PROOF: " .. chain[#chain].proof)
         if string.sub(hashOperation,1,4) ~= hashOperationLeadingZeros then
             --TODO ^ensure hash operation can equal 0000
+            LOG("### RETURNING FALSE 2 ")
             return false
-        end ]]
-        LOG("### BLOCK INDEX previousHash: " .. blockIndex)
-        blockIndex = blockIndex - 1
-        previousBlock = _Blockchain.chain[blockIndex - 1]
+        end
+        previousBlock = block
+        blockIndex = blockIndex + 1
     end
 
     return true
