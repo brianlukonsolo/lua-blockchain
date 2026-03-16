@@ -12,11 +12,14 @@ local function choose_transport(url)
     return http
 end
 
-local function send_request(method, url, payload, headers)
+local function send_request(method, url, payload, headers, options)
     local response_body = {}
     local transport = choose_transport(url)
     local request_headers = headers or {}
     local body = payload and tostring(payload) or nil
+    local timeout_seconds = tonumber((options or {}).timeout_seconds) or 5
+
+    transport.TIMEOUT = timeout_seconds
 
     if body then
         request_headers["Content-Length"] = #body
@@ -41,14 +44,14 @@ local function send_request(method, url, payload, headers)
     }
 end
 
-function requests.send_get_request(url, headers)
-    return send_request("GET", url, nil, headers)
+function requests.send_get_request(url, headers, options)
+    return send_request("GET", url, nil, headers, options)
 end
 
-function requests.send_post_request(url, payload, headers)
+function requests.send_post_request(url, payload, headers, options)
     local request_headers = headers or {}
     request_headers["Content-Type"] = request_headers["Content-Type"] or "application/json"
-    return send_request("POST", url, payload, request_headers)
+    return send_request("POST", url, payload, request_headers, options)
 end
 
 return requests

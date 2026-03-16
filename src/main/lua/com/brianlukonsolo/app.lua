@@ -1,25 +1,43 @@
 local cjson = require("classes.json")
 local canonical_json = require("classes.canonical_json")
-local crypto = require("classes.crypto")
+local config = require("classes.config")
+local bit = require("bit")
 local resty_lock = require("resty.lock")
 local sha = require("cryptography.pure_lua_SHA.sha2")
 local Blockchain = require("classes.blockchain")
+local crypto = require("classes.crypto")
 local requests = require("classes.requests")
 
-local APP_VERSION = "3.0.0"
-local DATA_FILE = os.getenv("BLOCKCHAIN_DATA_FILE") or "/app/blockchain_data.json"
-local DIFFICULTY = os.getenv("BLOCKCHAIN_DIFFICULTY") or "0000"
-local REWARD = tonumber(os.getenv("BLOCKCHAIN_REWARD")) or 1
-local NODE_ID = os.getenv("BLOCKCHAIN_NODE_ID") or "demo-node-1"
-local NODE_URL = os.getenv("BLOCKCHAIN_NODE_URL") or ""
+local APP_VERSION = "4.0.0"
+local CONFIG = config.load(APP_VERSION)
+
+local ADMIN_ROUTES = {
+    ["/api/wallets"] = true,
+    ["/api/mine"] = true,
+    ["/mine_block"] = true,
+    ["/api/peers"] = true,
+    ["/api/consensus/resolve"] = true
+}
+
+local function trim(value)
+    return tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end
 
 local function build_blockchain()
     return Blockchain.new({
-        file_name = DATA_FILE,
-        difficulty_prefix = DIFFICULTY,
-        mining_reward = REWARD,
-        node_id = NODE_ID,
-        node_url = NODE_URL,
+        file_name = CONFIG.data_file,
+        difficulty_prefix = CONFIG.difficulty_prefix,
+        mining_reward = CONFIG.mining_reward,
+        node_id = CONFIG.node_id,
+        node_url = CONFIG.node_url,
+        chain_id = CONFIG.chain_id,
+        max_peers = CONFIG.max_peers,
+        max_pending_transactions = CONFIG.max_pending_transactions,
+        max_transactions_per_block = CONFIG.max_transactions_per_block,
+        min_transaction_fee = CONFIG.min_transaction_fee,
+        max_transaction_note_bytes = CONFIG.max_transaction_note_bytes,
+        require_https_peers = CONFIG.require_https_peers,
+        allowed_peer_host_map = CONFIG.allowed_peer_host_map,
         version = APP_VERSION
     })
 end
@@ -29,10 +47,6 @@ local function send_json(status, payload)
     ngx.header["Content-Type"] = "application/json; charset=utf-8"
     ngx.say(canonical_json.encode(payload))
     return ngx.exit(status)
-end
-
-local function trim(value)
-    return tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
 end
 
 local function read_request_body()
@@ -60,19 +74,6 @@ local function read_request_body()
     end
 
     return decoded
-end
-
-local function build_snapshot(blockchain)
-    local valid, reason = blockchain:validate_chain(blockchain:get_chain())
-    return {
-        meta = blockchain:get_meta(),
-        stats = blockchain:get_stats(),
-        validation = { valid = valid, reason = reason },
-        chain = blockchain:get_chain(),
-        pending_transactions = blockchain:get_pending_transactions(),
-        peers = blockchain:get_peers(),
-        accounts = blockchain:get_accounts()
-    }
 end
 
 local function with_locked_blockchain(callback)
@@ -105,11 +106,174 @@ local function with_locked_blockchain(callback)
     return true, result
 end
 
+local function current_headers()
+    return ngx.req.get_headers(64) or {}
+end
+
+local function constant_time_equals(left, right)
+    left = tostring(left or "")
+    right = tostring(right or "")
+
+    if #left ~= #right then
+        return false
+    end
+
+    local diff = 0
+    for index = 1, #left do
+        diff = bit.bor(diff, bit.bxor(left:byte(index), right:byte(index)))
+    end
+
+    return diff == 0
+end
+
+local function get_client_identity()
+    return trim(ngx.var.remote_addr) ~= "" and ngx.var.remote_addr or "unknown"
+end
+
+local function check_rate_limit(bucket, limit)
+    if not limit or limit <= 0 then
+        return true
+    end
+
+    local dict = ngx.shared.blockchain_rate_limits
+    if not dict then
+        return false, "rate limiting is unavailable", 500
+    end
+
+    local now_bucket = math.floor(ngx.now() / 60)
+    local key = table.concat({ bucket, get_client_identity(), tostring(now_bucket) }, ":")
+    local current, err = dict:incr(key, 1, 0, 61)
+    if not current then
+        return false, "rate limiting failed: " .. tostring(err), 500
+    end
+
+    if current > limit then
+        return false, "rate limit exceeded", 429
+    end
+
+    ngx.header["X-RateLimit-Limit"] = tostring(limit)
+    ngx.header["X-RateLimit-Remaining"] = tostring(math.max(limit - current, 0))
+
+    return true
+end
+
+local function is_admin_route(method, uri)
+    return ADMIN_ROUTES[uri] == true and (method == "POST" or uri == "/mine_block")
+end
+
+local function is_peer_route(uri)
+    return uri:match("^/api/network/") ~= nil
+end
+
+local function require_admin_access()
+    if CONFIG.admin_token == "" then
+        return true
+    end
+
+    local headers = current_headers()
+    local candidate = headers["x-blockchain-admin-token"] or headers["authorization"] or ""
+    candidate = candidate:gsub("^Bearer%s+", "")
+
+    if constant_time_equals(candidate, CONFIG.admin_token) then
+        return true
+    end
+
+    return false, "admin token is required"
+end
+
+local function require_peer_access()
+    if CONFIG.peer_shared_secret == "" then
+        return true
+    end
+
+    local candidate = current_headers()["x-blockchain-peer-secret"] or ""
+    if constant_time_equals(candidate, CONFIG.peer_shared_secret) then
+        return true
+    end
+
+    return false, "peer shared secret is required"
+end
+
+local function enforce_request_policy(method, uri)
+    if is_peer_route(uri) then
+        local allowed, err = require_peer_access()
+        if not allowed then
+            return false, 401, err
+        end
+
+        local rate_ok, rate_err, rate_status = check_rate_limit("peer", CONFIG.peer_rate_limit_per_minute)
+        if not rate_ok then
+            return false, rate_status, rate_err
+        end
+
+        return true
+    end
+
+    if is_admin_route(method, uri) then
+        local allowed, err = require_admin_access()
+        if not allowed then
+            return false, 401, err
+        end
+
+        local rate_ok, rate_err, rate_status = check_rate_limit("admin", CONFIG.admin_rate_limit_per_minute)
+        if not rate_ok then
+            return false, rate_status, rate_err
+        end
+
+        return true
+    end
+
+    local rate_ok, rate_err, rate_status = check_rate_limit("public", CONFIG.public_rate_limit_per_minute)
+    if not rate_ok then
+        return false, rate_status, rate_err
+    end
+
+    return true
+end
+
+local function ensure_config_is_ready()
+    if CONFIG.is_valid then
+        return true
+    end
+
+    return false, {
+        status = "error",
+        message = "node configuration is invalid",
+        errors = CONFIG.errors
+    }
+end
+
+local function build_snapshot(blockchain)
+    local valid, reason = blockchain:validate_chain(blockchain:get_chain())
+    return {
+        meta = blockchain:get_meta(),
+        stats = blockchain:get_stats(),
+        validation = { valid = valid, reason = reason },
+        chain = blockchain:get_chain(),
+        pending_transactions = blockchain:get_pending_transactions(),
+        peers = blockchain:get_peers(),
+        accounts = blockchain:get_accounts()
+    }
+end
+
+local function peer_headers()
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+
+    if CONFIG.peer_shared_secret ~= "" then
+        headers["X-Blockchain-Peer-Secret"] = CONFIG.peer_shared_secret
+    end
+
+    return headers
+end
+
 local function send_peer_post(peer, path, payload)
     local response = requests.send_post_request(
         peer .. path,
         canonical_json.encode(payload),
-        { ["Content-Type"] = "application/json" }
+        peer_headers(),
+        { timeout_seconds = CONFIG.peer_timeout_seconds }
     )
 
     return {
@@ -121,19 +285,23 @@ local function send_peer_post(peer, path, payload)
 end
 
 local function broadcast_to_peers(peers, path, payload, excluded_peer)
-    local results = {}
+    local outcomes = {}
 
     for _, peer in ipairs(peers or {}) do
         if peer ~= excluded_peer then
-            results[#results + 1] = send_peer_post(peer, path, payload)
+            outcomes[#outcomes + 1] = send_peer_post(peer, path, payload)
         end
     end
 
-    return results
+    return outcomes
 end
 
-local function fetch_chain_payload(peer)
-    local response = requests.send_get_request(peer .. "/api/chain")
+local function fetch_peer_json(peer, path)
+    local response = requests.send_get_request(
+        peer .. path,
+        peer_headers(),
+        { timeout_seconds = CONFIG.peer_timeout_seconds }
+    )
     if not response.ok then
         return nil, response.status_text or ("HTTP " .. tostring(response.status_code))
     end
@@ -141,6 +309,20 @@ local function fetch_chain_payload(peer)
     local payload, err = cjson.decode(response.body)
     if not payload then
         return nil, "Peer returned invalid JSON: " .. tostring(err)
+    end
+
+    return payload
+end
+
+local function fetch_chain_payload(peer)
+    local payload, err = fetch_peer_json(peer, "/api/chain")
+    if not payload then
+        return nil, err
+    end
+
+    local chain_id = payload.meta and payload.meta.chain_id or nil
+    if chain_id and chain_id ~= CONFIG.chain_id then
+        return nil, "peer chain_id does not match local chain_id"
     end
 
     return payload
@@ -157,6 +339,26 @@ local function sync_from_source_peer(blockchain, source_peer)
     end
 
     return blockchain:replace_chain(payload.chain or payload)
+end
+
+local function verify_peer_compatibility(peer)
+    peer = trim(peer)
+    if peer == "" then
+        return false, "peer is required"
+    end
+
+    local payload, err = fetch_peer_json(peer, "/api/info")
+    if not payload then
+        return false, err
+    end
+
+    local snapshot = payload.snapshot or {}
+    local meta = snapshot.meta or {}
+    if meta.chain_id and meta.chain_id ~= CONFIG.chain_id then
+        return false, "peer chain_id does not match local chain_id"
+    end
+
+    return true
 end
 
 local function handle_hash_route(uri)
@@ -176,25 +378,71 @@ local function handle_hash_route(uri)
     end
 end
 
+local function handle_health()
+    return send_json(200, {
+        status = "ok",
+        service = "lua-blockchain",
+        version = APP_VERSION,
+        mode = CONFIG.mode,
+        node_id = CONFIG.node_id,
+        node_url = CONFIG.node_url,
+        chain_id = CONFIG.chain_id,
+        config_valid = CONFIG.is_valid,
+        config_errors = CONFIG.errors,
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    })
+end
+
+local function handle_ready()
+    local ready, config_error = ensure_config_is_ready()
+    if not ready then
+        return send_json(503, config_error)
+    end
+
+    local blockchain = build_blockchain()
+    local valid, reason = blockchain:validate_chain(blockchain:get_chain())
+    if not valid then
+        return send_json(503, {
+            status = "error",
+            message = "chain validation failed",
+            reason = reason
+        })
+    end
+
+    return send_json(200, {
+        status = "ready",
+        chain_id = CONFIG.chain_id,
+        node_id = CONFIG.node_id,
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    })
+end
+
 local function handle_request()
     local method = ngx.req.get_method()
     local uri = ngx.var.uri
     local args = ngx.req.get_uri_args()
 
+    if method == "GET" and (uri == "/api/health" or uri == "/health") then
+        return handle_health()
+    end
+
+    if method == "GET" and uri == "/api/ready" then
+        return handle_ready()
+    end
+
+    local allowed, status, err = enforce_request_policy(method, uri)
+    if not allowed then
+        return send_json(status, { error = err })
+    end
+
+    local config_ok, config_error = ensure_config_is_ready()
+    if not config_ok then
+        return send_json(503, config_error)
+    end
+
     local hash_response = handle_hash_route(uri)
     if hash_response then
         return hash_response
-    end
-
-    if method == "GET" and (uri == "/api/health" or uri == "/health") then
-        return send_json(200, {
-            status = "ok",
-            service = "lua-blockchain",
-            version = APP_VERSION,
-            node_id = NODE_ID,
-            node_url = NODE_URL,
-            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-        })
     end
 
     if method == "GET" and (uri == "/api/info" or uri == "/configuration") then
@@ -204,8 +452,10 @@ local function handle_request()
                 name = "lua-blockchain",
                 version = APP_VERSION,
                 runtime = "OpenResty / LuaJIT",
-                node_id = NODE_ID,
-                node_url = NODE_URL
+                mode = CONFIG.mode,
+                node_id = CONFIG.node_id,
+                node_url = CONFIG.node_url,
+                chain_id = CONFIG.chain_id
             },
             capabilities = {
                 signed_transactions = true,
@@ -213,24 +463,28 @@ local function handle_request()
                 account_balances = true,
                 peer_propagation = true,
                 longest_valid_chain_consensus = true,
+                admin_authentication = CONFIG.admin_token ~= "",
+                peer_authentication = CONFIG.peer_shared_secret ~= "",
+                rate_limiting = true,
                 frontend_console = true
             },
             api = {
                 health = "/api/health",
+                ready = "/api/ready",
                 info = "/api/info",
                 chain = "/api/chain",
                 stats = "/api/stats",
                 accounts = "/api/accounts",
                 account = "/api/accounts/{address}",
                 pending_transactions = "/api/transactions/pending",
-                create_wallet = "POST /api/wallets",
+                create_wallet = CONFIG.enable_server_wallets and "POST /api/wallets" or "disabled",
                 create_transaction = "POST /api/transactions",
                 mine = "POST /api/mine",
                 validate = "/api/validate",
-                peers = "/api/peers",
-                consensus = "POST /api/consensus/resolve",
-                receive_transaction = "POST /api/network/transactions",
-                receive_block = "POST /api/network/blocks"
+                peers = "POST /api/peers (admin)",
+                consensus = "POST /api/consensus/resolve (admin)",
+                receive_transaction = "POST /api/network/transactions (peer-authenticated)",
+                receive_block = "POST /api/network/blocks (peer-authenticated)"
             },
             snapshot = build_snapshot(blockchain)
         })
@@ -299,6 +553,12 @@ local function handle_request()
     end
 
     if method == "POST" and uri == "/api/wallets" then
+        if not CONFIG.enable_server_wallets then
+            return send_json(403, {
+                error = "server-side wallet generation is disabled"
+            })
+        end
+
         local wallet, err = crypto.create_wallet()
         if not wallet then
             return send_json(500, { error = err })
@@ -344,7 +604,7 @@ local function handle_request()
 
         if result.transaction then
             result.body.propagation = broadcast_to_peers(result.peers, "/api/network/transactions", {
-                source_peer = NODE_URL,
+                source_peer = CONFIG.node_url,
                 transaction = result.transaction
             })
         end
@@ -398,7 +658,7 @@ local function handle_request()
 
         if result.transaction then
             result.body.propagation = broadcast_to_peers(result.peers, "/api/network/transactions", {
-                source_peer = NODE_URL,
+                source_peer = CONFIG.node_url,
                 transaction = result.transaction
             }, source_peer ~= "" and source_peer or nil)
         end
@@ -442,7 +702,7 @@ local function handle_request()
 
         if result.block then
             result.body.propagation = broadcast_to_peers(result.peers, "/api/network/blocks", {
-                source_peer = NODE_URL,
+                source_peer = CONFIG.node_url,
                 block = result.block
             })
         end
@@ -466,7 +726,11 @@ local function handle_request()
         end
 
         local peer_url = payload.peer or payload.url
-        local handshake_enabled = payload.handshake ~= false
+        local compatible, compatibility_err = verify_peer_compatibility(peer_url)
+        if not compatible then
+            return send_json(400, { error = compatibility_err })
+        end
+
         local ok, result = with_locked_blockchain(function(locked_blockchain)
             local peers, register_err = locked_blockchain:register_peer(peer_url)
             if not peers then
@@ -486,13 +750,6 @@ local function handle_request()
         end)
         if not ok then
             return send_json(500, { error = result })
-        end
-
-        if handshake_enabled and trim(peer_url) ~= "" and NODE_URL ~= "" and trim(peer_url):gsub("/+$", "") ~= NODE_URL then
-            result.body.handshake = send_peer_post(trim(peer_url):gsub("/+$", ""), "/api/peers", {
-                peer = NODE_URL,
-                handshake = false
-            })
         end
 
         return send_json(result.status, result.body)
@@ -567,7 +824,7 @@ local function handle_request()
         local blockchain = build_blockchain()
         return send_json(200, {
             peers = blockchain:get_peers(),
-            message = "Peers now exchange signed transactions and newly mined blocks over /api/network/* routes."
+            message = "Peers exchange authenticated traffic over /api/network/* and must match the local chain_id."
         })
     end
 

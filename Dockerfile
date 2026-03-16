@@ -7,6 +7,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends lua-socket lua-sec lua-cjson ca-certificates luajit && \
     rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /app/data /tests
+
 COPY src/main/lua/com/brianlukonsolo/ /app/
 COPY src/test/ /tests/
 

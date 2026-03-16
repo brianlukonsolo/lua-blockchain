@@ -3,6 +3,13 @@ local canonical_json = require("classes.canonical_json")
 
 local storage = {}
 
+local function ensure_parent_directory(path)
+    local directory = tostring(path):match("^(.*)/[^/]+$")
+    if directory and directory ~= "" then
+        os.execute("mkdir -p " .. "'" .. directory:gsub("'", "'\\''") .. "'")
+    end
+end
+
 function storage.read_file(path)
     local handle, err = io.open(path, "r")
     if not handle then
@@ -16,6 +23,8 @@ function storage.read_file(path)
 end
 
 function storage.write_file(path, contents)
+    ensure_parent_directory(path)
+
     local handle, err = io.open(path, "w")
     if not handle then
         return nil, err

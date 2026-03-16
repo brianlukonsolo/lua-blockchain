@@ -109,12 +109,20 @@ function Blockchain.new(options)
     local self = setmetatable({}, Blockchain)
 
     self.name = options.name or "lua-blockchain"
-    self.version = options.version or "3.0.0"
+    self.version = options.version or "4.0.0"
     self.file_name = options.file_name or "blockchain_data.json"
     self.difficulty_prefix = options.difficulty_prefix or "0000"
     self.mining_reward = tonumber(options.mining_reward) or 1
     self.node_id = options.node_id or "node-local"
     self.node_url = options.node_url or ""
+    self.chain_id = options.chain_id or "lua-blockchain-mainnet"
+    self.max_peers = tonumber(options.max_peers) or 64
+    self.max_pending_transactions = tonumber(options.max_pending_transactions) or 5000
+    self.max_transactions_per_block = tonumber(options.max_transactions_per_block) or 250
+    self.min_transaction_fee = tonumber(options.min_transaction_fee) or 0
+    self.max_transaction_note_bytes = tonumber(options.max_transaction_note_bytes) or 280
+    self.require_https_peers = options.require_https_peers == true
+    self.allowed_peer_host_map = options.allowed_peer_host_map or {}
     self.chain = {}
     self.pending_transactions = {}
     self.peers = {}
@@ -287,6 +295,7 @@ function Blockchain:serialize_block_for_hash(block)
         hash = nil,
         index = block.index,
         mined_by = block.mined_by,
+        network = self.chain_id,
         previous_hash = tostring(block.previous_hash or "0"),
         proof = block.proof,
         timestamp = block.timestamp,
@@ -360,6 +369,10 @@ function Blockchain:normalize_transaction(input)
         fee = 0
         nonce = 0
     else
+        if fee + EPSILON < self.min_transaction_fee then
+            return nil, "fee must be at least " .. tostring(self.min_transaction_fee)
+        end
+
         local normalized_sender = crypto.normalize_address(sender)
         if not normalized_sender then
             return nil, "sender must be a valid address"
@@ -389,6 +402,10 @@ function Blockchain:normalize_transaction(input)
         return nil, "recipient must be a valid address"
     end
     recipient = normalized_recipient
+
+    if #note > self.max_transaction_note_bytes then
+        return nil, "note exceeds max length of " .. tostring(self.max_transaction_note_bytes) .. " bytes"
+    end
 
     local transaction = {
         amount = amount,
@@ -435,6 +452,10 @@ function Blockchain:normalize_block(input, previous_hash, index)
     }
 
     if is_array(input.transactions) then
+        if #input.transactions > self.max_transactions_per_block then
+            return nil, "block exceeds the max transaction count of " .. tostring(self.max_transactions_per_block)
+        end
+
         for transaction_index, transaction in ipairs(input.transactions) do
             local normalized_transaction, transaction_err = self:normalize_transaction(transaction)
             if not normalized_transaction then
@@ -473,13 +494,21 @@ end
 function Blockchain:build_state(chain)
     return {
         meta = {
+            chain_id = self.chain_id,
             consensus = "longest-valid-chain",
             difficulty_prefix = self.difficulty_prefix,
+            limits = {
+                max_peers = self.max_peers,
+                max_pending_transactions = self.max_pending_transactions,
+                max_transactions_per_block = self.max_transactions_per_block,
+                min_transaction_fee = self.min_transaction_fee,
+                max_transaction_note_bytes = self.max_transaction_note_bytes
+            },
             mining_reward = self.mining_reward,
             name = self.name,
             node_id = self.node_id,
             node_url = self.node_url,
-            schema_version = 3,
+            schema_version = 4,
             updated_at = utc_now(),
             version = self.version
         },
@@ -512,13 +541,21 @@ function Blockchain:reset()
     self.pending_transactions = {}
     self.peers = {}
     self.meta = {
+        chain_id = self.chain_id,
         consensus = "longest-valid-chain",
         difficulty_prefix = self.difficulty_prefix,
+        limits = {
+            max_peers = self.max_peers,
+            max_pending_transactions = self.max_pending_transactions,
+            max_transactions_per_block = self.max_transactions_per_block,
+            min_transaction_fee = self.min_transaction_fee,
+            max_transaction_note_bytes = self.max_transaction_note_bytes
+        },
         mining_reward = self.mining_reward,
         name = self.name,
         node_id = self.node_id,
         node_url = self.node_url,
-        schema_version = 3,
+        schema_version = 4,
         updated_at = utc_now(),
         version = self.version
     }
@@ -530,13 +567,21 @@ function Blockchain:migrate_state(decoded)
     if is_array(decoded) then
         return {
             meta = {
+                chain_id = self.chain_id,
                 consensus = "longest-valid-chain",
                 difficulty_prefix = self.difficulty_prefix,
+                limits = {
+                    max_peers = self.max_peers,
+                    max_pending_transactions = self.max_pending_transactions,
+                    max_transactions_per_block = self.max_transactions_per_block,
+                    min_transaction_fee = self.min_transaction_fee,
+                    max_transaction_note_bytes = self.max_transaction_note_bytes
+                },
                 mining_reward = self.mining_reward,
                 name = self.name,
                 node_id = self.node_id,
                 node_url = self.node_url,
-                schema_version = 3,
+                schema_version = 4,
                 updated_at = utc_now(),
                 version = self.version
             },
@@ -577,13 +622,21 @@ function Blockchain:load()
     end
 
     self.meta = {
+        chain_id = self.chain_id,
         consensus = "longest-valid-chain",
         difficulty_prefix = self.difficulty_prefix,
+        limits = {
+            max_peers = self.max_peers,
+            max_pending_transactions = self.max_pending_transactions,
+            max_transactions_per_block = self.max_transactions_per_block,
+            min_transaction_fee = self.min_transaction_fee,
+            max_transaction_note_bytes = self.max_transaction_note_bytes
+        },
         mining_reward = self.mining_reward,
         name = self.name,
         node_id = self.node_id,
         node_url = self.node_url,
-        schema_version = 3,
+        schema_version = 4,
         updated_at = migrated.meta.updated_at or utc_now(),
         version = self.version
     }
@@ -592,7 +645,7 @@ function Blockchain:load()
     if is_array(migrated.peers) then
         for _, peer in ipairs(migrated.peers) do
             local normalized_peer = trim(peer):gsub("/+$", "")
-            if normalized_peer ~= "" then
+            if normalized_peer ~= "" and #self.peers < self.max_peers then
                 self.peers[#self.peers + 1] = normalized_peer
             end
         end
@@ -618,7 +671,7 @@ function Blockchain:load()
     if is_array(migrated.pending_transactions) then
         for _, transaction in ipairs(migrated.pending_transactions) do
             local normalized_transaction = self:normalize_transaction(transaction)
-            if normalized_transaction and normalized_transaction.kind == "transfer" and not self:has_transaction(normalized_transaction.id) then
+            if normalized_transaction and normalized_transaction.kind == "transfer" and not self:has_transaction(normalized_transaction.id) and #self.pending_transactions < self.max_pending_transactions then
                 self.pending_transactions[#self.pending_transactions + 1] = normalized_transaction
             end
         end
@@ -840,6 +893,10 @@ function Blockchain:add_transaction(input)
         return nil, "transaction already exists"
     end
 
+    if #self.pending_transactions >= self.max_pending_transactions then
+        return nil, "pending transaction pool is full"
+    end
+
     local rejected = self:revalidate_pending_transactions()
     local confirmed_state = self:calculate_confirmed_state(self.chain)
     if not confirmed_state then
@@ -856,6 +913,17 @@ function Blockchain:add_transaction(input)
     end
 
     self.pending_transactions[#self.pending_transactions + 1] = transaction
+    table.sort(self.pending_transactions, function(left, right)
+        if left.fee == right.fee then
+            if left.timestamp == right.timestamp then
+                return left.id < right.id
+            end
+
+            return left.timestamp < right.timestamp
+        end
+
+        return left.fee > right.fee
+    end)
     self:save()
 
     return deep_copy(transaction), #self.chain + 1
@@ -912,13 +980,18 @@ function Blockchain:mine_block(miner_address)
     local deferred_transactions = {}
     local total_fees = 0
 
+    local max_transfer_count = math.max(self.max_transactions_per_block - 1, 0)
     for _, transaction in ipairs(self.pending_transactions) do
+        if #selected_transactions >= max_transfer_count then
+            deferred_transactions[#deferred_transactions + 1] = deep_copy(transaction)
+        else
         local applied = self:apply_transfer_to_state(working_state, transaction)
         if applied then
             selected_transactions[#selected_transactions + 1] = deep_copy(transaction)
             total_fees = round_currency(total_fees + transaction.fee) or total_fees
         else
             deferred_transactions[#deferred_transactions + 1] = deep_copy(transaction)
+        end
         end
     end
 
@@ -958,10 +1031,23 @@ function Blockchain:register_peer(peer)
         return nil, "peer must start with http:// or https://"
     end
 
+    if self.require_https_peers and not normalized:match("^https://") then
+        return nil, "peer must use https"
+    end
+
+    local host = normalized:match("^https?://([^/%?]+)")
+    if next(self.allowed_peer_host_map) and (not host or not self.allowed_peer_host_map[host:lower()]) then
+        return nil, "peer host is not allowed"
+    end
+
     for _, existing in ipairs(self.peers) do
         if existing == normalized then
             return self:get_peers()
         end
+    end
+
+    if #self.peers >= self.max_peers then
+        return nil, "peer limit reached"
     end
 
     self.peers[#self.peers + 1] = normalized
