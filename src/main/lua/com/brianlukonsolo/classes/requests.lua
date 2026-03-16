@@ -1,3 +1,7 @@
+if rawget(_G, "ltn12") == nil then
+    rawset(_G, "ltn12", {})
+end
+
 local http = require("socket.http")
 local https = require("ssl.https")
 local ltn12 = require("ltn12")

@@ -6,9 +6,9 @@ local resty_lock = require("resty.lock")
 local sha = require("cryptography.pure_lua_SHA.sha2")
 local Blockchain = require("classes.blockchain")
 local crypto = require("classes.crypto")
-local requests = require("classes.requests")
+local network = require("classes.network")
 
-local APP_VERSION = "4.0.0"
+local APP_VERSION = "9.0.0"
 local CONFIG = config.load(APP_VERSION)
 
 local ADMIN_ROUTES = {
@@ -16,7 +16,8 @@ local ADMIN_ROUTES = {
     ["/api/mine"] = true,
     ["/mine_block"] = true,
     ["/api/peers"] = true,
-    ["/api/consensus/resolve"] = true
+    ["/api/consensus/resolve"] = true,
+    ["/api/admin/backup"] = true
 }
 
 local function trim(value)
@@ -27,6 +28,10 @@ local function build_blockchain()
     return Blockchain.new({
         file_name = CONFIG.data_file,
         difficulty_prefix = CONFIG.difficulty_prefix,
+        target_block_seconds = CONFIG.target_block_seconds,
+        difficulty_adjustment_window = CONFIG.difficulty_adjustment_window,
+        min_difficulty_prefix_length = CONFIG.min_difficulty_prefix_length,
+        max_difficulty_prefix_length = CONFIG.max_difficulty_prefix_length,
         mining_reward = CONFIG.mining_reward,
         node_id = CONFIG.node_id,
         node_url = CONFIG.node_url,
@@ -38,6 +43,37 @@ local function build_blockchain()
         max_transaction_note_bytes = CONFIG.max_transaction_note_bytes,
         require_https_peers = CONFIG.require_https_peers,
         allowed_peer_host_map = CONFIG.allowed_peer_host_map,
+        allowed_peer_id_map = CONFIG.allowed_peer_id_map,
+        bootstrap_peers = CONFIG.bootstrap_peers,
+        peer_discovery_fanout = CONFIG.peer_discovery_fanout,
+        peer_advertised_limit = CONFIG.peer_advertised_limit,
+        peer_backoff_base_seconds = CONFIG.peer_backoff_base_seconds,
+        peer_ban_seconds = CONFIG.peer_ban_seconds,
+        peer_max_failures_before_ban = CONFIG.peer_max_failures_before_ban,
+        max_peers_per_ip = CONFIG.max_peers_per_ip,
+        max_peers_per_subnet = CONFIG.max_peers_per_subnet,
+        p2p_enabled = CONFIG.p2p_enabled,
+        p2p_bind_host = CONFIG.p2p_bind_host,
+        p2p_port = CONFIG.p2p_port,
+        p2p_advertise_host = CONFIG.p2p_advertise_host,
+        p2p_endpoint = CONFIG.p2p_endpoint,
+        p2p_seeds = CONFIG.p2p_seeds,
+        p2p_tls_enabled = CONFIG.p2p_tls_enabled,
+        p2p_tls_cert_path = CONFIG.p2p_tls_cert_path,
+        p2p_tls_key_path = CONFIG.p2p_tls_key_path,
+        node_identity_private_key_path = CONFIG.node_identity_private_key_path,
+        node_identity_public_key_path = CONFIG.node_identity_public_key_path,
+        backup_dir = CONFIG.backup_dir,
+        gossip_enabled = CONFIG.gossip_enabled,
+        gossip_bind_host = CONFIG.gossip_bind_host,
+        gossip_port = CONFIG.gossip_port,
+        gossip_advertise_host = CONFIG.gossip_advertise_host,
+        gossip_endpoint = CONFIG.gossip_endpoint,
+        gossip_seeds = CONFIG.gossip_seeds,
+        gossip_fanout = CONFIG.gossip_fanout,
+        gossip_interval_seconds = CONFIG.gossip_interval_seconds,
+        gossip_message_ttl_seconds = CONFIG.gossip_message_ttl_seconds,
+        gossip_max_hops = CONFIG.gossip_max_hops,
         version = APP_VERSION
     })
 end
@@ -252,113 +288,65 @@ local function build_snapshot(blockchain)
         chain = blockchain:get_chain(),
         pending_transactions = blockchain:get_pending_transactions(),
         peers = blockchain:get_peers(),
+        peer_records = blockchain:get_peer_records(),
         accounts = blockchain:get_accounts()
     }
 end
 
-local function peer_headers()
-    local headers = {
-        ["Content-Type"] = "application/json"
-    }
-
-    if CONFIG.peer_shared_secret ~= "" then
-        headers["X-Blockchain-Peer-Secret"] = CONFIG.peer_shared_secret
+local function persist_peer_outcomes(outcomes)
+    if type(outcomes) ~= "table" or #outcomes == 0 then
+        return
     end
 
-    return headers
+    local ok, result = with_locked_blockchain(function(locked_blockchain)
+        network.record_peer_outcomes(locked_blockchain, outcomes)
+        return true
+    end)
+    if not ok then
+        ngx.log(ngx.ERR, "unable to persist peer outcomes: ", tostring(result))
+    end
 end
 
-local function send_peer_post(peer, path, payload)
-    local response = requests.send_post_request(
-        peer .. path,
-        canonical_json.encode(payload),
-        peer_headers(),
-        { timeout_seconds = CONFIG.peer_timeout_seconds }
-    )
-
-    return {
-        peer = peer,
-        ok = response.ok,
-        status_code = response.status_code,
-        error = response.ok and nil or (response.status_text or ("HTTP " .. tostring(response.status_code)))
-    }
+local function parse_hash_list(raw_value)
+    return network.parse_hash_list(raw_value)
 end
 
-local function broadcast_to_peers(peers, path, payload, excluded_peer)
-    local outcomes = {}
+local function merge_tables(base, overrides)
+    local merged = {}
 
-    for _, peer in ipairs(peers or {}) do
-        if peer ~= excluded_peer then
-            outcomes[#outcomes + 1] = send_peer_post(peer, path, payload)
+    if type(base) == "table" then
+        for key, value in pairs(base) do
+            merged[key] = value
         end
     end
 
-    return outcomes
+    if type(overrides) == "table" then
+        for key, value in pairs(overrides) do
+            merged[key] = value
+        end
+    end
+
+    return merged
 end
 
-local function fetch_peer_json(peer, path)
-    local response = requests.send_get_request(
-        peer .. path,
-        peer_headers(),
-        { timeout_seconds = CONFIG.peer_timeout_seconds }
-    )
-    if not response.ok then
-        return nil, response.status_text or ("HTTP " .. tostring(response.status_code))
-    end
-
-    local payload, err = cjson.decode(response.body)
-    if not payload then
-        return nil, "Peer returned invalid JSON: " .. tostring(err)
-    end
-
-    return payload
+local function build_inventory_summary(blockchain)
+    return network.build_inventory_summary(blockchain)
 end
 
-local function fetch_chain_payload(peer)
-    local payload, err = fetch_peer_json(peer, "/api/chain")
-    if not payload then
-        return nil, err
-    end
-
-    local chain_id = payload.meta and payload.meta.chain_id or nil
-    if chain_id and chain_id ~= CONFIG.chain_id then
-        return nil, "peer chain_id does not match local chain_id"
-    end
-
-    return payload
+local function broadcast_to_peers(peers, path, payload, excluded_peer)
+    return network.broadcast_to_peers(CONFIG, peers, path, payload, excluded_peer)
 end
 
 local function sync_from_source_peer(blockchain, source_peer)
-    if trim(source_peer) == "" then
-        return false, "No source peer supplied"
-    end
-
-    local payload, err = fetch_chain_payload(source_peer)
-    if not payload then
-        return false, err
-    end
-
-    return blockchain:replace_chain(payload.chain or payload)
+    return network.sync_from_source_peer(CONFIG, blockchain, source_peer)
 end
 
-local function verify_peer_compatibility(peer)
-    peer = trim(peer)
-    if peer == "" then
-        return false, "peer is required"
-    end
+local function resolve_conflicts_headers_first(blockchain)
+    return network.resolve_conflicts_headers_first(CONFIG, blockchain)
+end
 
-    local payload, err = fetch_peer_json(peer, "/api/info")
-    if not payload then
-        return false, err
-    end
-
-    local snapshot = payload.snapshot or {}
-    local meta = snapshot.meta or {}
-    if meta.chain_id and meta.chain_id ~= CONFIG.chain_id then
-        return false, "peer chain_id does not match local chain_id"
-    end
-
-    return true
+local function verify_peer_compatibility(peer, blockchain)
+    return network.verify_peer_compatibility(CONFIG, peer, blockchain)
 end
 
 local function handle_hash_route(uri)
@@ -462,7 +450,16 @@ local function handle_request()
                 nonce_enforcement = true,
                 account_balances = true,
                 peer_propagation = true,
-                longest_valid_chain_consensus = true,
+                peer_discovery = true,
+                peer_reputation = true,
+                inventory_announcements = true,
+                native_p2p_transport = CONFIG.p2p_enabled == true,
+                gossip_transport = CONFIG.gossip_enabled == true,
+                block_fetch_by_hash = true,
+                headers_first_sync = true,
+                retargeted_prefix_pow = true,
+                most_cumulative_work_consensus = true,
+                background_maintenance = CONFIG.peer_maintenance_enabled == true,
                 admin_authentication = CONFIG.admin_token ~= "",
                 peer_authentication = CONFIG.peer_shared_secret ~= "",
                 rate_limiting = true,
@@ -473,6 +470,13 @@ local function handle_request()
                 ready = "/api/ready",
                 info = "/api/info",
                 chain = "/api/chain",
+                headers = "/api/headers?from_height=1&limit=32",
+                locator = "/api/locator",
+                network_peers = "GET /api/network/peers (peer-authenticated)",
+                p2p_peer_update = "POST /api/network/p2p/peer-update (peer-authenticated local daemon)",
+                p2p_peer_failure = "POST /api/network/p2p/peer-failure (peer-authenticated local daemon)",
+                gossip_announce = "POST /api/network/gossip/announce (peer-authenticated local daemon)",
+                block_by_hash = "/api/blocks/hash/{hash}",
                 stats = "/api/stats",
                 accounts = "/api/accounts",
                 account = "/api/accounts/{address}",
@@ -483,11 +487,204 @@ local function handle_request()
                 validate = "/api/validate",
                 peers = "POST /api/peers (admin)",
                 consensus = "POST /api/consensus/resolve (admin)",
+                backup = "POST /api/admin/backup (admin)",
+                peer_directory = "GET /api/network/peers (peer-authenticated)",
+                receive_p2p_peer_update = "POST /api/network/p2p/peer-update (peer-authenticated local daemon)",
+                receive_p2p_peer_failure = "POST /api/network/p2p/peer-failure (peer-authenticated local daemon)",
+                receive_gossip = "POST /api/network/gossip/announce (peer-authenticated local daemon)",
+                receive_inventory = "POST /api/network/inventory (peer-authenticated)",
                 receive_transaction = "POST /api/network/transactions (peer-authenticated)",
                 receive_block = "POST /api/network/blocks (peer-authenticated)"
             },
             snapshot = build_snapshot(blockchain)
         })
+    end
+
+    if method == "GET" and uri == "/api/headers" then
+        local blockchain = build_blockchain()
+        local locator_hashes = parse_hash_list(args.locator)
+        local headers = #locator_hashes > 0
+            and blockchain:get_headers_after_locator(locator_hashes, args.limit)
+            or blockchain:get_headers(args.from_height or args.start, args.limit)
+        return send_json(200, {
+            headers = headers,
+            count = #headers,
+            cumulative_work = blockchain:get_chain_work(blockchain:get_chain())
+        })
+    end
+
+    if method == "GET" and uri == "/api/locator" then
+        local blockchain = build_blockchain()
+        return send_json(200, {
+            meta = blockchain:get_meta(),
+            locator = blockchain:get_locator(args.limit)
+        })
+    end
+
+    if method == "GET" and uri == "/api/network/peers" then
+        local blockchain = build_blockchain()
+        return send_json(200, network.build_peer_directory_payload(
+            CONFIG,
+            blockchain,
+            trim(args.exclude),
+            args.limit
+        ))
+    end
+
+    if method == "POST" and uri == "/api/network/p2p/peer-update" then
+        local payload, err = read_request_body()
+        if not payload then
+            return send_json(400, { error = err })
+        end
+
+        local source_peer = trim(trim(payload.source_peer) ~= "" and payload.source_peer or payload.node_url)
+        local chain_id = trim(payload.chain_id)
+        local peer_id = trim(payload.peer_id)
+        local p2p_endpoint = trim(payload.p2p_endpoint)
+        local gossip_endpoint = trim(payload.gossip_endpoint)
+        local remote_ip = trim(payload.remote_ip)
+        local network_group = trim(payload.network_group)
+        local tls_cert_fingerprint = trim(payload.tls_cert_fingerprint):lower()
+        local capabilities = merge_tables(payload.capabilities, {})
+
+        if source_peer == "" then
+            return send_json(400, { error = "source_peer is required" })
+        end
+
+        if chain_id ~= "" and chain_id ~= CONFIG.chain_id then
+            return send_json(400, { error = "peer chain_id does not match the local chain" })
+        end
+
+        if trim(payload.public_key) ~= "" then
+            local derived_peer_id, peer_id_err = crypto.address_from_public_key(payload.public_key)
+            if not derived_peer_id then
+                return send_json(400, { error = peer_id_err })
+            end
+
+            if peer_id ~= "" and peer_id ~= derived_peer_id then
+                return send_json(400, { error = "peer_id does not match the supplied public key" })
+            end
+
+            peer_id = derived_peer_id
+            capabilities.signed_identity = {
+                peer_id = peer_id,
+                public_key = payload.public_key
+            }
+        end
+
+        if p2p_endpoint ~= "" then
+            capabilities.p2p_transport = {
+                protocol = "tcp",
+                endpoint = p2p_endpoint
+            }
+        end
+
+        if gossip_endpoint ~= "" then
+            capabilities.gossip_transport = {
+                protocol = "udp",
+                endpoint = gossip_endpoint
+            }
+        end
+
+        if remote_ip ~= "" then
+            capabilities.network_address = remote_ip
+        end
+
+        if network_group ~= "" then
+            capabilities.network_group = network_group
+        end
+
+        if payload.tls_enabled ~= nil or tls_cert_fingerprint ~= "" then
+            local transport_security = type(capabilities.transport_security) == "table"
+                and merge_tables(capabilities.transport_security, {})
+                or {}
+            transport_security.tls = payload.tls_enabled == true
+            if tls_cert_fingerprint ~= "" then
+                transport_security.tls_cert_fingerprint = tls_cert_fingerprint
+            end
+            capabilities.transport_security = transport_security
+        end
+
+        capabilities.peer_discovery = true
+        capabilities.headers_first_sync = true
+        capabilities.block_fetch_by_hash = true
+        capabilities.transaction_relay = true
+
+        local ok, result = with_locked_blockchain(function(locked_blockchain)
+            local record, update_err = locked_blockchain:note_peer_success(source_peer, {
+                source = "discovered",
+                node_id = payload.node_id,
+                node_url = payload.node_url or source_peer,
+                version = payload.version,
+                chain_id = chain_id ~= "" and chain_id or CONFIG.chain_id,
+                capabilities = capabilities,
+                last_advertised_height = payload.last_advertised_height,
+                last_cumulative_work = payload.last_cumulative_work
+            })
+            if not record then
+                return {
+                    status = 400,
+                    body = { error = update_err }
+                }
+            end
+
+            local discovered = locked_blockchain:record_discovered_peers(payload.peers or payload.peer_records, source_peer)
+
+            return {
+                status = 200,
+                body = {
+                    accepted = true,
+                    peer = record,
+                    discovered = discovered
+                }
+            }
+        end)
+        if not ok then
+            return send_json(500, { error = result })
+        end
+
+        return send_json(result.status, result.body)
+    end
+
+    if method == "POST" and uri == "/api/network/p2p/peer-failure" then
+        local payload, err = read_request_body()
+        if not payload then
+            return send_json(400, { error = err })
+        end
+
+        local source_peer = trim(trim(payload.source_peer) ~= "" and payload.source_peer or payload.node_url)
+        if source_peer == "" then
+            return send_json(400, { error = "source_peer is required" })
+        end
+
+        local ok, result = with_locked_blockchain(function(locked_blockchain)
+            local record, failure_err = locked_blockchain:note_peer_failure(source_peer, payload.error or "native p2p transport failure", {
+                source = "discovered",
+                node_id = payload.node_id,
+                node_url = payload.node_url or source_peer,
+                version = payload.version,
+                chain_id = payload.chain_id
+            })
+            if not record then
+                return {
+                    status = 400,
+                    body = { error = failure_err }
+                }
+            end
+
+            return {
+                status = 200,
+                body = {
+                    accepted = true,
+                    peer = record
+                }
+            }
+        end)
+        if not ok then
+            return send_json(500, { error = result })
+        end
+
+        return send_json(result.status, result.body)
     end
 
     if method == "GET" and (uri == "/api/chain" or uri == "/get_chain") then
@@ -516,6 +713,17 @@ local function handle_request()
     if method == "GET" and block_index then
         local blockchain = build_blockchain()
         local block = blockchain:get_block(tonumber(block_index))
+        if not block then
+            return send_json(404, { error = "Block not found" })
+        end
+
+        return send_json(200, { block = block })
+    end
+
+    local block_hash = uri:match("^/api/blocks/hash/([0-9a-f]+)$")
+    if method == "GET" and block_hash then
+        local blockchain = build_blockchain()
+        local block = blockchain:get_block_by_hash(block_hash)
         if not block then
             return send_json(404, { error = "Block not found" })
         end
@@ -570,6 +778,39 @@ local function handle_request()
         })
     end
 
+    if method == "POST" and uri == "/api/admin/backup" then
+        local payload, err = read_request_body()
+        if not payload then
+            return send_json(400, { error = err })
+        end
+
+        local ok, result = with_locked_blockchain(function(locked_blockchain)
+            local manifest, backup_err = locked_blockchain:create_backup({
+                backup_dir = CONFIG.backup_dir,
+                label = payload.label
+            })
+            if not manifest then
+                return {
+                    status = 500,
+                    body = { error = backup_err }
+                }
+            end
+
+            return {
+                status = 201,
+                body = {
+                    message = "Backup created",
+                    backup = manifest
+                }
+            }
+        end)
+        if not ok then
+            return send_json(500, { error = result })
+        end
+
+        return send_json(result.status, result.body)
+    end
+
     if method == "POST" and uri == "/api/transactions" then
         local payload, err = read_request_body()
         if not payload then
@@ -602,11 +843,12 @@ local function handle_request()
             return send_json(500, { error = result })
         end
 
-        if result.transaction then
+        if result.transaction and not CONFIG.p2p_enabled then
             result.body.propagation = broadcast_to_peers(result.peers, "/api/network/transactions", {
                 source_peer = CONFIG.node_url,
                 transaction = result.transaction
             })
+            persist_peer_outcomes(result.body.propagation)
         end
 
         return send_json(result.status, result.body)
@@ -656,11 +898,12 @@ local function handle_request()
             return send_json(500, { error = result })
         end
 
-        if result.transaction then
+        if result.transaction and not CONFIG.p2p_enabled then
             result.body.propagation = broadcast_to_peers(result.peers, "/api/network/transactions", {
                 source_peer = CONFIG.node_url,
                 transaction = result.transaction
             }, source_peer ~= "" and source_peer or nil)
+            persist_peer_outcomes(result.body.propagation)
         end
 
         return send_json(result.status, result.body)
@@ -693,18 +936,24 @@ local function handle_request()
                     snapshot = build_snapshot(locked_blockchain)
                 },
                 peers = locked_blockchain:get_peers(),
-                block = block
+                block = block,
+                inventory = build_inventory_summary(locked_blockchain),
+                advertised_peers = locked_blockchain:get_advertised_peers(CONFIG.peer_advertised_limit),
+                meta = locked_blockchain:get_meta()
             }
         end)
         if not ok then
             return send_json(500, { error = result })
         end
 
-        if result.block then
-            result.body.propagation = broadcast_to_peers(result.peers, "/api/network/blocks", {
+        if result.block and not CONFIG.p2p_enabled then
+            result.body.propagation = broadcast_to_peers(result.peers, "/api/network/inventory", {
                 source_peer = CONFIG.node_url,
-                block = result.block
+                meta = result.meta,
+                inventory = result.inventory,
+                peers = result.advertised_peers
             })
+            persist_peer_outcomes(result.body.propagation)
         end
 
         return send_json(result.status, result.body)
@@ -714,8 +963,14 @@ local function handle_request()
         local blockchain = build_blockchain()
         local peers = blockchain:get_peers()
         return send_json(200, {
+            active_peers = peers,
             peers = peers,
-            count = #peers
+            peer_records = blockchain:get_peer_records(),
+            counts = {
+                active = blockchain:get_active_peer_count(),
+                total = blockchain:get_total_peer_count(),
+                states = blockchain:get_peer_state_counts()
+            }
         })
     end
 
@@ -757,14 +1012,93 @@ local function handle_request()
 
     if method == "POST" and uri == "/api/consensus/resolve" then
         local ok, result = with_locked_blockchain(function(locked_blockchain)
-            local replaced, consensus_result = locked_blockchain:resolve_conflicts(fetch_chain_payload)
+            locked_blockchain:seed_bootstrap_peers(CONFIG.bootstrap_peers)
+            local discovery = network.discover_from_peers(CONFIG, locked_blockchain)
+            local replaced, consensus_result = resolve_conflicts_headers_first(locked_blockchain)
 
             return {
                 status = 200,
                 body = {
                     replaced = replaced,
+                    discovery = discovery,
                     result = consensus_result,
                     snapshot = build_snapshot(locked_blockchain)
+                }
+            }
+        end)
+        if not ok then
+            return send_json(500, { error = result })
+        end
+
+        return send_json(result.status, result.body)
+    end
+
+    if method == "POST" and uri == "/api/network/inventory" then
+        local payload, err = read_request_body()
+        if not payload then
+            return send_json(400, { error = err })
+        end
+
+        local source_peer = trim(payload.source_peer)
+        if source_peer == "" then
+            return send_json(400, { error = "source_peer is required" })
+        end
+
+        local inventory = payload.inventory or payload
+        local announced_locator = {
+            hashes = parse_hash_list(inventory.locator or inventory.hashes),
+            height = tonumber(inventory.height) or 0,
+            cumulative_work = tonumber(inventory.cumulative_work) or 0,
+            tip_hash = trim(inventory.tip_hash):lower()
+        }
+        local announced_peers = payload.peers or inventory.peers
+
+        local ok, result = with_locked_blockchain(function(locked_blockchain)
+            locked_blockchain:record_discovered_peers(announced_peers, source_peer)
+            local updated, message, details = sync_from_source_peer(locked_blockchain, source_peer)
+            local status = updated and 202 or ((details and details.status) == "error" and 409 or 200)
+
+            return {
+                status = status,
+                body = {
+                    accepted = updated,
+                    updated = updated,
+                    status = details and details.status or (updated and "updated" or "noop"),
+                    message = message,
+                    advertised_locator = announced_locator,
+                    discovered = announced_peers,
+                    snapshot = updated and build_snapshot(locked_blockchain) or nil
+                }
+            }
+        end)
+        if not ok then
+            return send_json(500, { error = result })
+        end
+
+        return send_json(result.status, result.body)
+    end
+
+    if method == "POST" and uri == "/api/network/gossip/announce" then
+        local payload, err = read_request_body()
+        if not payload then
+            return send_json(400, { error = err })
+        end
+
+        local ok, result = with_locked_blockchain(function(locked_blockchain)
+            local updated, message, details = network.ingest_gossip_announcement(CONFIG, locked_blockchain, payload)
+            local status = updated and 202 or ((details and details.status) == "error" and 409 or 200)
+
+            return {
+                status = status,
+                body = {
+                    accepted = true,
+                    updated = updated,
+                    status = details and details.status or (updated and "updated" or "noop"),
+                    message = message,
+                    source_peer = payload.source_peer,
+                    source_gossip_endpoint = payload.source_gossip_endpoint,
+                    discovered = details and details.discovered or 0,
+                    snapshot = updated and build_snapshot(locked_blockchain) or nil
                 }
             }
         end)
@@ -824,7 +1158,7 @@ local function handle_request()
         local blockchain = build_blockchain()
         return send_json(200, {
             peers = blockchain:get_peers(),
-            message = "Peers exchange authenticated traffic over /api/network/* and must match the local chain_id."
+            message = "Peers exchange authenticated traffic over /api/network/*, announce inventory, fetch headers after locators, and fetch missing blocks by hash."
         })
     end
 

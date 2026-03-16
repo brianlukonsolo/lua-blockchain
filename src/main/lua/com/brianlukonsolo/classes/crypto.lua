@@ -1,6 +1,5 @@
 local canonical_json = require("classes.canonical_json")
 local hashing = require("cryptography.pure_lua_SHA.sha2")
-local mime = require("mime")
 local storage = require("classes.storage")
 
 local crypto = {}
@@ -17,6 +16,24 @@ end
 
 local function normalize_newlines(value)
     return tostring(value or ""):gsub("\r\n", "\n"):gsub("\r", "\n")
+end
+
+local function encode_base64(value)
+    return (hashing.bin_to_base64(tostring(value or "")):gsub("%s+", ""))
+end
+
+local function decode_base64(value)
+    local normalized = trim(value):gsub("%s+", "")
+    if normalized == "" then
+        return nil
+    end
+
+    local ok, decoded = pcall(hashing.base64_to_bin, normalized)
+    if not ok then
+        return nil
+    end
+
+    return decoded
 end
 
 local function allocate_paths(prefix)
@@ -243,7 +260,7 @@ function crypto.sign_message(private_key, message)
         return nil, "Unable to read generated signature"
     end
 
-    return (mime.b64(signature):gsub("%s+", ""))
+    return encode_base64(signature)
 end
 
 function crypto.verify_message(public_key, message, signature)
@@ -257,7 +274,7 @@ function crypto.verify_message(public_key, message, signature)
         return false, signature_err
     end
 
-    local decoded_signature = mime.unb64(normalized_signature)
+    local decoded_signature = decode_base64(normalized_signature)
     if not decoded_signature or decoded_signature == "" then
         return false, "signature is not valid base64"
     end

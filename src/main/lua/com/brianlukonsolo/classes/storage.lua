@@ -10,6 +10,8 @@ local function ensure_parent_directory(path)
     end
 end
 
+storage.ensure_parent_directory = ensure_parent_directory
+
 function storage.read_file(path)
     local handle, err = io.open(path, "r")
     if not handle then
@@ -20,6 +22,16 @@ function storage.read_file(path)
     handle:close()
 
     return contents
+end
+
+function storage.file_exists(path)
+    local handle = io.open(path, "r")
+    if not handle then
+        return false
+    end
+
+    handle:close()
+    return true
 end
 
 function storage.write_file(path, contents)
@@ -34,6 +46,15 @@ function storage.write_file(path, contents)
     handle:close()
 
     return true
+end
+
+function storage.copy_file(source_path, destination_path)
+    local contents, err = storage.read_file(source_path)
+    if contents == nil then
+        return nil, err
+    end
+
+    return storage.write_file(destination_path, contents)
 end
 
 function storage.read_json(path)

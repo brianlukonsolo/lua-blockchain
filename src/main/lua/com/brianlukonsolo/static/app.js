@@ -332,6 +332,10 @@ function renderHero(snapshot) {
       <strong>${stats.peers}</strong>
     </article>
     <article class="hero-mini">
+      <span class="metric-label">Work</span>
+      <strong>${stats.cumulative_work}</strong>
+    </article>
+    <article class="hero-mini">
       <span class="metric-label">Chain Status</span>
       <strong>${validation}</strong>
     </article>
@@ -344,25 +348,41 @@ function renderSnapshot(snapshot) {
 
   elements.snapshotGrid.innerHTML = [
     metricCard("Node", meta.node_id || "n/a"),
-    metricCard("Difficulty", meta.difficulty_prefix),
+    metricCard("Base Difficulty", meta.difficulty_prefix),
+    metricCard("Tip Difficulty", stats.tip_difficulty_prefix || meta.difficulty_prefix),
     metricCard("Reward", formatAmount(meta.mining_reward)),
     metricCard("Accounts", stats.accounts),
     metricCard("Supply", formatAmount(stats.circulating_supply)),
     metricCard("Queued Fees", formatAmount(stats.queued_fees)),
+    metricCard("Target Block Time", `${stats.target_block_seconds}s`),
+    metricCard("Avg Block Time", stats.average_block_time_seconds ? `${stats.average_block_time_seconds}s` : "n/a"),
   ].join("");
 }
 
 function renderPeers(snapshot) {
-  if (!snapshot.peers.length) {
+  const peerRecords = snapshot.peer_records || [];
+  if (!peerRecords.length && !snapshot.peers.length) {
     elements.peerList.innerHTML = `<div class="list-empty">No peers registered yet.</div>`;
     return;
   }
 
-  elements.peerList.innerHTML = snapshot.peers
+  const peers = peerRecords.length
+    ? peerRecords
+    : (snapshot.peers || []).map((peer) => ({ url: peer, state: "active", score: 0 }));
+
+  elements.peerList.innerHTML = peers
     .map(
       (peer) => `
         <article class="peer-item">
-          <div class="mono">${peer}</div>
+          <div class="account-row">
+            <div class="mono">${peer.url}</div>
+            <span>${peer.state || "active"}</span>
+          </div>
+          <div class="subtle">
+            Score ${peer.score ?? 0}
+            ${peer.node_id ? `| ${peer.node_id}` : ""}
+            ${peer.last_error ? `| ${peer.last_error}` : ""}
+          </div>
         </article>
       `
     )
@@ -455,12 +475,24 @@ function renderChain(snapshot) {
               <div class="mono">${shorten(block.mined_by || "n/a", 12)}</div>
             </div>
             <div>
+              <div class="metric-label">Difficulty</div>
+              <div class="mono">${block.difficulty_prefix || "n/a"}</div>
+            </div>
+            <div>
+              <div class="metric-label">Work</div>
+              <div class="mono">${block.work || "n/a"}</div>
+            </div>
+            <div>
               <div class="metric-label">Hash</div>
               <div class="mono">${shorten(block.hash, 20)}</div>
             </div>
             <div>
               <div class="metric-label">Previous Hash</div>
               <div class="mono">${shorten(block.previous_hash, 20)}</div>
+            </div>
+            <div>
+              <div class="metric-label">Cumulative Work</div>
+              <div class="mono">${block.cumulative_work || "n/a"}</div>
             </div>
           </div>
           <div class="tx-list">${transactions}</div>
