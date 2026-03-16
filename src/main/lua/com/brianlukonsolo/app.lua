@@ -288,7 +288,7 @@ local function build_snapshot(blockchain)
         chain = blockchain:get_chain(),
         pending_transactions = blockchain:get_pending_transactions(),
         peers = blockchain:get_peers(),
-        peer_records = blockchain:get_peer_records(),
+        peer_records = blockchain:get_public_peer_records(),
         accounts = blockchain:get_accounts()
     }
 end
@@ -463,7 +463,8 @@ local function handle_request()
                 admin_authentication = CONFIG.admin_token ~= "",
                 peer_authentication = CONFIG.peer_shared_secret ~= "",
                 rate_limiting = true,
-                frontend_console = true
+                frontend_console = true,
+                frontend_learn = true
             },
             api = {
                 health = "/api/health",
@@ -965,7 +966,7 @@ local function handle_request()
         return send_json(200, {
             active_peers = peers,
             peers = peers,
-            peer_records = blockchain:get_peer_records(),
+            peer_records = blockchain:get_public_peer_records(),
             counts = {
                 active = blockchain:get_active_peer_count(),
                 total = blockchain:get_total_peer_count(),

@@ -403,6 +403,36 @@ function Blockchain:get_peer_records()
     return deep_copy(self.peer_records)
 end
 
+function Blockchain:get_public_peer_records()
+    local public_records = {}
+
+    for _, record in ipairs(self.peer_records) do
+        public_records[#public_records + 1] = {
+            url = record.url,
+            state = record.state,
+            score = record.score,
+            source = record.source,
+            node_id = record.node_id,
+            node_url = record.node_url,
+            version = record.version,
+            chain_id = record.chain_id,
+            last_error = record.last_error,
+            last_seen_at = record.last_seen_at,
+            last_success_at = record.last_success_at,
+            last_failure_at = record.last_failure_at,
+            success_count = record.success_count,
+            failure_count = record.failure_count,
+            cooldown_until = record.cooldown_until,
+            banned_until = record.banned_until,
+            last_advertised_height = record.last_advertised_height,
+            last_cumulative_work = record.last_cumulative_work,
+            capabilities = sanitize_advertised_peer_capabilities(record.capabilities)
+        }
+    end
+
+    return public_records
+end
+
 function Blockchain:get_backup_dir()
     return self.backup_dir
 end

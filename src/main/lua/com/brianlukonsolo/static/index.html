@@ -1,136 +1,735 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lua Blockchain Node</title>
-  <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <div class="page-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Wallet-backed blockchain node</p>
-        <h1>Lua Blockchain Network Console</h1>
-        <p class="lede">
-          Generate a wallet in the browser, sign transactions locally, mine blocks, propagate them to peers, and inspect account balances in one place.
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lua Blockchain Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero panel reveal">
+        <div class="hero-copy">
+          <p class="eyebrow">Production-focused Lua blockchain node</p>
+          <h1>Blockchain Operations And Learning Console</h1>
+          <p class="lede">
+            Operate the node, inspect its live state, and study how this specific chain works from
+            browser wallet to mining, fork choice, peer sync, and backup recovery.
+          </p>
+          <div class="hero-actions">
+            <button id="open-console-button" class="primary-button" type="button">Open Console</button>
+            <button id="open-learn-button" class="ghost-button" type="button">Open Learn</button>
+          </div>
+        </div>
+        <div class="hero-side">
+          <div id="hero-badges" class="hero-badges"></div>
+          <div id="hero-stats" class="hero-stats"></div>
+          <div id="hero-runtime" class="runtime-stack"></div>
+        </div>
+      </header>
+
+      <nav class="top-tabs panel reveal" aria-label="Primary views">
+        <div class="tab-row">
+          <button class="tab-button is-active" type="button" data-view-target="console-view">Console</button>
+          <button class="tab-button" type="button" data-view-target="learn-view">Learn</button>
+        </div>
+        <p class="top-tabs-note">
+          The console is for live operations. The Learn section is a guided course on this node's
+          architecture, transaction lifecycle, mining flow, consensus model, and security posture.
         </p>
-      </div>
-      <div class="hero-stats" id="hero-stats"></div>
-    </header>
+      </nav>
 
-    <main class="grid">
-      <section class="panel panel-wide">
-        <div class="panel-head">
-          <h2>Node Snapshot</h2>
-          <div class="action-row">
-            <button class="ghost-button" id="refresh-button" type="button">Refresh</button>
-            <button class="ghost-button" id="validate-button" type="button">Validate</button>
-            <button class="ghost-button" id="sync-button" type="button">Resolve Consensus</button>
+      <main class="view-stack">
+        <section id="console-view" class="view-section is-active" aria-labelledby="open-console-button">
+          <div class="dashboard-grid">
+            <section class="panel panel-span-2 reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Live Node Snapshot</p>
+                  <h2>Operations Console</h2>
+                </div>
+                <div class="action-row">
+                  <button id="refresh-button" class="primary-button" type="button">Refresh</button>
+                  <button id="validate-button" class="ghost-button" type="button">Validate Chain</button>
+                  <button id="sync-button" class="ghost-button" type="button">Resolve Consensus</button>
+                </div>
+              </div>
+              <div id="snapshot-grid" class="metric-grid"></div>
+              <div id="security-grid" class="metric-grid metric-grid-compact"></div>
+              <div id="status-strip" class="status-strip" role="status" aria-live="polite">
+                Loading blockchain state...
+              </div>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Admin And Recovery</p>
+                  <h2>Operator Controls</h2>
+                </div>
+              </div>
+              <div class="stacked-form">
+                <label>
+                  <span>Admin token</span>
+                  <input
+                    id="admin-token-input"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="Stored in this browser session only"
+                  />
+                </label>
+                <div class="action-row">
+                  <button id="save-admin-button" class="primary-button" type="button">Save Token</button>
+                  <button id="clear-admin-button" class="ghost-button" type="button">Clear Token</button>
+                </div>
+                <p id="operator-note" class="inline-note">
+                  Admin actions will use the token stored in this browser session.
+                </p>
+                <label>
+                  <span>Backup label</span>
+                  <input id="backup-label-input" type="text" placeholder="pre-release-audit" />
+                </label>
+                <button id="backup-button" class="ghost-button" type="button">Create Backup</button>
+                <pre id="backup-output" class="code-output">No backup created in this session.</pre>
+              </div>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Browser Wallet</p>
+                  <h2>Signing Workspace</h2>
+                </div>
+              </div>
+              <div class="wallet-card">
+                <div class="metric-label">Active wallet</div>
+                <div id="wallet-address" class="wallet-address">Generate or import a wallet to begin.</div>
+                <div id="wallet-balance" class="wallet-balance">Balance: n/a</div>
+              </div>
+              <div class="stacked-form">
+                <label>
+                  <span>Wallet export or import payload</span>
+                  <textarea
+                    id="wallet-textarea"
+                    placeholder="Generate a browser wallet, or paste exported wallet JSON here."
+                  ></textarea>
+                </label>
+                <div class="action-row">
+                  <button id="generate-wallet-button" class="primary-button" type="button">Generate Wallet</button>
+                  <button id="export-wallet-button" class="ghost-button" type="button">Export Wallet</button>
+                  <button id="import-wallet-button" class="ghost-button" type="button">Import Wallet</button>
+                  <button id="clear-wallet-button" class="ghost-button" type="button">Clear Wallet</button>
+                </div>
+                <p class="inline-note">
+                  Wallets stay in session storage by default. Export them explicitly if you need to keep them.
+                </p>
+              </div>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Signed Transfers</p>
+                  <h2>Create Transaction</h2>
+                </div>
+              </div>
+              <form id="transaction-form" class="stacked-form">
+                <label>
+                  <span>Sender</span>
+                  <input id="sender-address" name="sender" type="text" placeholder="Wallet address" />
+                </label>
+                <label>
+                  <span>Recipient</span>
+                  <input name="recipient" type="text" placeholder="lbc_..." />
+                </label>
+                <div class="inline-grid">
+                  <label>
+                    <span>Amount</span>
+                    <input name="amount" type="number" step="0.01" min="0" placeholder="1.25" />
+                  </label>
+                  <label>
+                    <span>Fee</span>
+                    <input name="fee" type="number" step="0.01" min="0" placeholder="0.05" />
+                  </label>
+                </div>
+                <label>
+                  <span>Note</span>
+                  <textarea name="note" placeholder="Explain what this transfer is for."></textarea>
+                </label>
+                <button class="primary-button" type="submit">Sign And Broadcast</button>
+              </form>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Block Production</p>
+                  <h2>Mine A Block</h2>
+                </div>
+              </div>
+              <form id="mine-form" class="stacked-form">
+                <label>
+                  <span>Reward address</span>
+                  <input id="miner-address" name="miner" type="text" placeholder="lbc_..." />
+                </label>
+                <p class="inline-note">
+                  Mining packages valid pending transactions, collects their fees, adds the block
+                  reward, persists the result, and propagates the new tip.
+                </p>
+                <button id="mine-button" class="primary-button" type="submit">Mine And Announce</button>
+              </form>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Peer Management</p>
+                  <h2>Register Peer</h2>
+                </div>
+              </div>
+              <form id="peer-form" class="stacked-form">
+                <label>
+                  <span>Peer URL</span>
+                  <input name="peer" type="url" placeholder="https://node-2.example.com" />
+                </label>
+                <button id="peer-submit-button" class="ghost-button" type="submit">Register Peer</button>
+              </form>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Network State</p>
+                  <h2>Peers</h2>
+                </div>
+              </div>
+              <div id="peer-list" class="list-panel"></div>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Ledger State</p>
+                  <h2>Accounts</h2>
+                </div>
+              </div>
+              <div id="account-list" class="list-panel"></div>
+            </section>
+
+            <section class="panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Mempool</p>
+                  <h2>Pending Transactions</h2>
+                </div>
+              </div>
+              <div id="pending-list" class="list-panel"></div>
+            </section>
+
+            <section class="panel panel-span-3 reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Chain View</p>
+                  <h2>Recent Blocks</h2>
+                </div>
+              </div>
+              <div id="chain-list" class="list-panel"></div>
+            </section>
           </div>
-        </div>
-        <div class="snapshot-grid" id="snapshot-grid"></div>
-        <div class="status-strip" id="status-strip">Loading node state...</div>
-      </section>
+        </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Wallet</h2>
-        </div>
-        <div class="wallet-stack">
-          <div class="wallet-card" id="wallet-card">
-            <div class="metric-label">No local wallet loaded</div>
-            <div class="wallet-address mono" id="wallet-address">Generate or import a wallet to sign transactions.</div>
-            <div class="wallet-balance" id="wallet-balance">Balance: n/a</div>
-          </div>
-          <div class="action-row">
-            <button class="primary-button" id="generate-wallet-button" type="button">Generate Wallet</button>
-            <button class="ghost-button" id="export-wallet-button" type="button">Export Wallet</button>
-          </div>
-          <label>
-            <span>Wallet Import / Export</span>
-            <textarea id="wallet-textarea" rows="7" placeholder='Paste exported wallet JSON here'></textarea>
-          </label>
-          <div class="action-row">
-            <button class="ghost-button" id="import-wallet-button" type="button">Import Wallet</button>
-            <button class="ghost-button" id="clear-wallet-button" type="button">Forget Wallet</button>
-          </div>
-        </div>
-      </section>
+        <section id="learn-view" class="view-section" aria-labelledby="open-learn-button">
+          <div class="learn-layout">
+            <aside class="lesson-rail panel reveal">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Guided Course</p>
+                  <h2>Learn The Chain</h2>
+                </div>
+              </div>
+              <div class="lesson-button-list">
+                <button class="lesson-button is-active" type="button" data-section-target="lesson-overview">
+                  1. Overview
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-architecture">
+                  2. Architecture
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-transactions">
+                  3. Transactions
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-mining">
+                  4. Mining
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-consensus">
+                  5. Consensus
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-security">
+                  6. Security
+                </button>
+                <button class="lesson-button" type="button" data-section-target="lesson-review">
+                  7. Review
+                </button>
+              </div>
+              <div class="progress-panel">
+                <div class="metric-label">Course progress</div>
+                <div id="course-progress" class="progress-copy">Lesson 1 of 7</div>
+                <div class="progress-track"><span id="course-progress-bar"></span></div>
+              </div>
+              <div class="panel-head compact-head">
+                <div>
+                  <p class="section-kicker">Live Summary</p>
+                  <h2>What This Node Is Doing</h2>
+                </div>
+              </div>
+              <div id="course-live-summary" class="summary-grid"></div>
+            </aside>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Send Signed Transaction</h2>
-        </div>
-        <form id="transaction-form" class="stacked-form">
-          <label>
-            <span>Sender</span>
-            <input name="sender" id="sender-address" placeholder="Generate a wallet first" readonly>
-          </label>
-          <label>
-            <span>Recipient</span>
-            <input name="recipient" placeholder="lbc_..." required>
-          </label>
-          <label>
-            <span>Amount</span>
-            <input name="amount" type="number" min="0.01" step="0.01" placeholder="2.50" required>
-          </label>
-          <label>
-            <span>Fee</span>
-            <input name="fee" type="number" min="0" step="0.01" value="0.10">
-          </label>
-          <label>
-            <span>Note</span>
-            <input name="note" placeholder="Invoice 2026-03">
-          </label>
-          <button class="primary-button" type="submit">Sign And Broadcast</button>
-        </form>
-      </section>
+            <div class="learn-content">
+              <section id="lesson-overview" class="lesson-card panel reveal" data-lesson-index="1">
+                <p class="section-kicker">Lesson 1</p>
+                <h2>How To Read This Blockchain</h2>
+                <p>
+                  This Learn section is not generic blockchain theory. It is a tour of this
+                  repository's node: a LuaJIT/OpenResty service, a SQLite-backed chain state, a
+                  browser wallet that signs transactions locally, and a native P2P plus HTTP sync
+                  layer that moves blocks and transactions between peers.
+                </p>
+                <p>
+                  Read the sections in order if you want the full system story. Start in the
+                  Console if you want to operate the node while you learn. Every lesson pairs live
+                  node facts with a diagram so you can connect code, runtime behavior, and the
+                  exposed API.
+                </p>
+                <div class="study-grid">
+                  <article class="study-card">
+                    <h3>Operating Plane</h3>
+                    <p>
+                      Refresh the snapshot, validate the chain, resolve consensus, register peers,
+                      and create backups from the Console.
+                    </p>
+                  </article>
+                  <article class="study-card">
+                    <h3>Protocol Plane</h3>
+                    <p>
+                      Learn how signed transfers enter the mempool, how mining turns them into
+                      blocks, and how cumulative work decides the winning chain.
+                    </p>
+                  </article>
+                  <article class="study-card">
+                    <h3>Security Plane</h3>
+                    <p>
+                      See where admin tokens, peer secrets, TLS, rate limits, peer admission rules,
+                      and backup discipline fit into the node lifecycle.
+                    </p>
+                  </article>
+                </div>
+                <div id="course-review-grid" class="study-grid"></div>
+              </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Mining And Peers</h2>
-        </div>
-        <form id="mine-form" class="stacked-form">
-          <label>
-            <span>Miner Address</span>
-            <input name="miner" id="miner-address" placeholder="lbc_...">
-          </label>
-          <button class="primary-button" type="submit">Mine Pending Transactions</button>
-        </form>
-        <form id="peer-form" class="stacked-form peer-form">
-          <label>
-            <span>Peer URL</span>
-            <input name="peer" placeholder="http://127.0.0.1:8081" required>
-          </label>
-          <button class="ghost-button" type="submit">Register Peer</button>
-        </form>
-        <div class="peer-list" id="peer-list"></div>
-      </section>
+              <section id="lesson-architecture" class="lesson-card panel reveal" data-lesson-index="2">
+                <p class="section-kicker">Lesson 2</p>
+                <h2>Architecture: From Browser To Persistent Chain State</h2>
+                <p>
+                  The node is intentionally split into distinct responsibilities. OpenResty serves
+                  the frontend and API. The blockchain core validates and mutates state. SQLite
+                  holds durable chain, mempool, peer, and metadata tables. A native P2P daemon and
+                  optional gossip channel handle peer-side transport and discovery.
+                </p>
+                <div class="diagram-frame">
+                  <svg class="diagram-canvas" viewBox="0 0 1120 520" aria-label="Architecture diagram">
+                    <defs>
+                      <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#f38b47" />
+                        <stop offset="100%" stop-color="#4fb788" />
+                      </linearGradient>
+                    </defs>
+                    <path class="diagram-path" d="M218 144 H 408" />
+                    <path class="diagram-path" d="M520 184 V 252" />
+                    <path class="diagram-path" d="M628 144 H 826" />
+                    <path class="diagram-path" d="M628 326 H 826" />
+                    <path class="diagram-path" d="M940 144 H 1054" />
+                    <path class="diagram-path" d="M940 326 H 1054" />
+                    <path class="diagram-path diagram-path-soft" d="M214 326 H 408" />
+                    <g class="diagram-node">
+                      <rect x="48" y="88" width="170" height="110" rx="24" />
+                      <text x="133" y="128">Browser</text>
+                      <text x="133" y="160">Wallet + UI</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="408" y="88" width="220" height="110" rx="24" />
+                      <text x="518" y="128">OpenResty</text>
+                      <text x="518" y="160">HTTP API + Static App</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="408" y="252" width="220" height="110" rx="24" />
+                      <text x="518" y="292">Blockchain Core</text>
+                      <text x="518" y="324">Validation + Mempool + Mining</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="826" y="88" width="114" height="110" rx="24" />
+                      <text x="883" y="128">SQLite</text>
+                      <text x="883" y="160">State Store</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="826" y="252" width="114" height="110" rx="24" />
+                      <text x="883" y="292">Native P2P</text>
+                      <text x="883" y="324">TCP + TLS</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="52" y="270" width="162" height="88" rx="24" />
+                      <text x="133" y="308">UDP Gossip</text>
+                      <text x="133" y="336">Discovery Layer</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="954" y="88" width="118" height="110" rx="24" />
+                      <text x="1013" y="128">Backups</text>
+                      <text x="1013" y="160">DB + Keys</text>
+                    </g>
+                    <g class="diagram-node">
+                      <rect x="954" y="252" width="118" height="110" rx="24" />
+                      <text x="1013" y="292">Remote</text>
+                      <text x="1013" y="324">Peers</text>
+                    </g>
+                    <circle class="diagram-pulse" cx="304" cy="144" r="8" />
+                    <circle class="diagram-pulse" cx="730" cy="144" r="8" />
+                    <circle class="diagram-pulse" cx="730" cy="326" r="8" />
+                  </svg>
+                </div>
+                <div id="architecture-facts" class="fact-grid"></div>
+                <div class="callout">
+                  <h3>Why the split matters</h3>
+                  <p>
+                    Separating the HTTP surface, chain logic, transport daemons, and durable state
+                    makes the node easier to operate and reason about. It also makes the main
+                    bottlenecks visible: state reload cost, public snapshot size, and transport
+                    complexity.
+                  </p>
+                </div>
+              </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Accounts</h2>
-        </div>
-        <div class="list-panel" id="account-list"></div>
-      </section>
+              <section id="lesson-transactions" class="lesson-card panel reveal" data-lesson-index="3">
+                <p class="section-kicker">Lesson 3</p>
+                <h2>Transaction Flow: From Local Signature To Shared Mempool</h2>
+                <p>
+                  In this frontend, wallets are generated in the browser with Web Crypto. The node
+                  never has to see your private key unless you deliberately use a server-side wallet
+                  route. The address is derived from the public key, and every outgoing transfer is
+                  signed over a canonical payload containing sender, recipient, amount, fee, nonce,
+                  note, and timestamp.
+                </p>
+                <div class="diagram-frame">
+                  <svg class="diagram-canvas" viewBox="0 0 1120 360" aria-label="Transaction flow diagram">
+                    <path class="diagram-path" d="M146 180 H 320" />
+                    <path class="diagram-path" d="M386 180 H 560" />
+                    <path class="diagram-path" d="M626 180 H 800" />
+                    <path class="diagram-path" d="M866 180 H 1040" />
+                    <g class="diagram-step">
+                      <circle cx="96" cy="180" r="42" />
+                      <text x="96" y="174">1</text>
+                      <text x="96" y="203">Wallet</text>
+                    </g>
+                    <g class="diagram-step">
+                      <circle cx="336" cy="180" r="42" />
+                      <text x="336" y="174">2</text>
+                      <text x="336" y="203">Sign</text>
+                    </g>
+                    <g class="diagram-step">
+                      <circle cx="576" cy="180" r="42" />
+                      <text x="576" y="174">3</text>
+                      <text x="576" y="203">POST</text>
+                    </g>
+                    <g class="diagram-step">
+                      <circle cx="816" cy="180" r="42" />
+                      <text x="816" y="174">4</text>
+                      <text x="816" y="203">Validate</text>
+                    </g>
+                    <g class="diagram-step">
+                      <circle cx="1056" cy="180" r="42" />
+                      <text x="1056" y="174">5</text>
+                      <text x="1056" y="203">Mempool</text>
+                    </g>
+                    <text class="diagram-caption" x="96" y="276">Generate or import keys in the browser.</text>
+                    <text class="diagram-caption" x="336" y="276">Sign the canonical transaction payload locally.</text>
+                    <text class="diagram-caption" x="576" y="276">Send JSON to /api/transactions.</text>
+                    <text class="diagram-caption" x="816" y="276">Server checks signature, balance, fee, nonce, limits.</text>
+                    <text class="diagram-caption" x="1056" y="276">Accepted transactions wait for mining and relay.</text>
+                  </svg>
+                </div>
+                <div id="transaction-facts" class="fact-grid"></div>
+                <div class="callout">
+                  <h3>What the node enforces</h3>
+                  <p>
+                    The chain uses an account model. The node rejects invalid signatures, stale or
+                    skipped nonces, transactions that exceed the sender's pending balance, fees
+                    below the configured minimum, and notes that exceed the configured byte cap.
+                  </p>
+                </div>
+              </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Mempool</h2>
-        </div>
-        <div class="list-panel" id="pending-list"></div>
-      </section>
+              <section id="lesson-mining" class="lesson-card panel reveal" data-lesson-index="4">
+                <p class="section-kicker">Lesson 4</p>
+                <h2>Mining And Validation: How Blocks Become Canonical</h2>
+                <p>
+                  Mining starts by selecting valid pending transfers, then appending a reward
+                  transaction for the miner. The block header includes the previous hash, proof,
+                  difficulty prefix, and cumulative work. The node retargets difficulty over a
+                  configurable time window rather than keeping a fixed proof target forever.
+                </p>
+                <div class="diagram-frame">
+                  <svg class="diagram-canvas" viewBox="0 0 1120 420" aria-label="Mining flow diagram">
+                    <path class="diagram-path" d="M180 124 H 420" />
+                    <path class="diagram-path" d="M500 124 H 740" />
+                    <path class="diagram-path" d="M820 124 H 1060" />
+                    <path class="diagram-path" d="M180 300 H 420" />
+                    <path class="diagram-path" d="M500 300 H 740" />
+                    <path class="diagram-path" d="M820 300 H 1060" />
+                    <g class="diagram-box">
+                      <rect x="48" y="70" width="132" height="108" rx="24" />
+                      <text x="114" y="112">Pending</text>
+                      <text x="114" y="142">Transactions</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="420" y="70" width="132" height="108" rx="24" />
+                      <text x="486" y="112">Validate</text>
+                      <text x="486" y="142">And Order</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="740" y="70" width="132" height="108" rx="24" />
+                      <text x="806" y="112">Proof</text>
+                      <text x="806" y="142">Search</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="1060" y="70" width="48" height="108" rx="24" />
+                      <text x="1084" y="126">Tip</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="48" y="246" width="132" height="108" rx="24" />
+                      <text x="114" y="288">Reward</text>
+                      <text x="114" y="318">+ Fees</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="420" y="246" width="132" height="108" rx="24" />
+                      <text x="486" y="288">Persist</text>
+                      <text x="486" y="318">SQLite</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="740" y="246" width="132" height="108" rx="24" />
+                      <text x="806" y="288">Update</text>
+                      <text x="806" y="318">Accounts</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="1060" y="246" width="48" height="108" rx="24" />
+                      <text x="1084" y="288">Announce</text>
+                    </g>
+                  </svg>
+                </div>
+                <div id="mining-facts" class="fact-grid"></div>
+                <div class="callout">
+                  <h3>What “valid block” means here</h3>
+                  <p>
+                    The block must link to the previous hash, satisfy the proof target implied by
+                    its difficulty prefix, carry correct cumulative work, preserve account and nonce
+                    rules across all contained transfers, and leave the chain in a valid state when
+                    replayed from genesis.
+                  </p>
+                </div>
+              </section>
 
-      <section class="panel panel-wide">
-        <div class="panel-head">
-          <h2>Chain Explorer</h2>
-        </div>
-        <div class="chain-list" id="chain-list"></div>
-      </section>
-    </main>
-  </div>
+              <section id="lesson-consensus" class="lesson-card panel reveal" data-lesson-index="5">
+                <p class="section-kicker">Lesson 5</p>
+                <h2>Consensus And Sync: Why Most Cumulative Work Wins</h2>
+                <p>
+                  This node does not pick the longest chain blindly. It compares cumulative work.
+                  Peers advertise inventory and discovery data, exchange locators and headers, fetch
+                  missing blocks by hash, and only replace the local branch when the candidate chain
+                  proves more work.
+                </p>
+                <div class="diagram-frame">
+                  <svg class="diagram-canvas" viewBox="0 0 1120 400" aria-label="Consensus flow diagram">
+                    <path class="diagram-path" d="M156 140 H 360" />
+                    <path class="diagram-path" d="M436 140 H 640" />
+                    <path class="diagram-path" d="M716 140 H 920" />
+                    <path class="diagram-path" d="M996 140 H 1084" />
+                    <path class="diagram-path diagram-path-soft" d="M640 226 V 310 H 436" />
+                    <g class="diagram-box">
+                      <rect x="36" y="84" width="120" height="112" rx="24" />
+                      <text x="96" y="126">Discover</text>
+                      <text x="96" y="156">Peers</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="316" y="84" width="120" height="112" rx="24" />
+                      <text x="376" y="126">Locator</text>
+                      <text x="376" y="156">+ Headers</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="596" y="84" width="120" height="112" rx="24" />
+                      <text x="656" y="126">Fetch</text>
+                      <text x="656" y="156">Blocks</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="876" y="84" width="120" height="112" rx="24" />
+                      <text x="936" y="126">Compare</text>
+                      <text x="936" y="156">Work</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="1000" y="252" width="92" height="112" rx="24" />
+                      <text x="1046" y="292">Keep</text>
+                      <text x="1046" y="322">Or Replace</text>
+                    </g>
+                    <g class="diagram-box">
+                      <rect x="316" y="252" width="120" height="112" rx="24" />
+                      <text x="376" y="292">Mismatch?</text>
+                      <text x="376" y="322">Fetch More</text>
+                    </g>
+                  </svg>
+                </div>
+                <div id="consensus-facts" class="fact-grid"></div>
+                <div class="callout">
+                  <h3>Why headers-first matters</h3>
+                  <p>
+                    Headers are cheaper than full blocks. A node can inspect claimed work and tip
+                    continuity before it spends bandwidth on full block bodies. That makes sync more
+                    efficient and reduces pointless block transfer.
+                  </p>
+                </div>
+              </section>
 
-  <script src="/static/app.js" defer></script>
-</body>
+              <section id="lesson-security" class="lesson-card panel reveal" data-lesson-index="6">
+                <p class="section-kicker">Lesson 6</p>
+                <h2>Security And Operations: How The Node Protects Itself</h2>
+                <p>
+                  The node uses several concentric control layers. Public HTTP is rate-limited.
+                  Administrative routes can require an admin token. Peer-facing routes can require a
+                  shared secret. Native P2P can run over TLS, and peer admission rules can enforce
+                  allowlists and per-IP or per-subnet caps. Backups snapshot the database and node
+                  identity material for recovery.
+                </p>
+                <div class="diagram-frame">
+                  <svg class="diagram-canvas" viewBox="0 0 1120 380" aria-label="Security layers diagram">
+                    <g class="ring ring-outer">
+                      <ellipse cx="560" cy="190" rx="476" ry="144" />
+                    </g>
+                    <g class="ring ring-middle">
+                      <ellipse cx="560" cy="190" rx="356" ry="108" />
+                    </g>
+                    <g class="ring ring-inner">
+                      <ellipse cx="560" cy="190" rx="234" ry="74" />
+                    </g>
+                    <g class="security-center">
+                      <rect x="486" y="142" width="148" height="96" rx="28" />
+                      <text x="560" y="180">Node Core</text>
+                      <text x="560" y="208">Chain State</text>
+                    </g>
+                    <text class="diagram-caption" x="560" y="56">Rate limits + public API policy</text>
+                    <text class="diagram-caption" x="560" y="96">Admin token + peer secret + allowlists</text>
+                    <text class="diagram-caption" x="560" y="126">TLS P2P + identity + backup discipline</text>
+                    <text class="diagram-caption" x="210" y="300">Observed peer admission caps</text>
+                    <text class="diagram-caption" x="900" y="300">Recovery snapshots and key material</text>
+                  </svg>
+                </div>
+                <div id="security-facts" class="fact-grid"></div>
+                <div class="callout">
+                  <h3>Operator mindset</h3>
+                  <p>
+                    Production hardening is not only about code. It also depends on secret rotation,
+                    restricted network paths, off-node backup retention, monitoring, and an honest
+                    understanding of which public interfaces are still expensive or revealing.
+                  </p>
+                </div>
+              </section>
+
+              <section id="lesson-review" class="lesson-card panel reveal" data-lesson-index="7">
+                <p class="section-kicker">Lesson 7</p>
+                <h2>Review, Findings, And API Reference</h2>
+                <p>
+                  This final section ties the implementation back to a code review. The cards below
+                  call out the largest remaining risks or scaling boundaries I found in the current
+                  system, followed by a live API map and glossary.
+                </p>
+                <div id="implementation-findings" class="review-grid"></div>
+                <div class="panel-head compact-head">
+                  <div>
+                    <p class="section-kicker">Live API Surface</p>
+                    <h2>Endpoints This Frontend Teaches</h2>
+                  </div>
+                </div>
+                <div id="api-map" class="api-grid"></div>
+                <div class="panel-head compact-head">
+                  <div>
+                    <p class="section-kicker">Glossary</p>
+                    <h2>Terms Used In This Node</h2>
+                  </div>
+                </div>
+                <div class="glossary-grid">
+                  <details class="glossary-item">
+                    <summary>Account model</summary>
+                    <p>
+                      Balances are tracked per address. Transactions mutate sender and recipient
+                      balances directly instead of spending discrete UTXOs.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Nonce</summary>
+                    <p>
+                      A monotonic counter per sender that prevents replay and enforces transaction
+                      ordering.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Difficulty prefix</summary>
+                    <p>
+                      The required leading-zero prefix for a valid block hash in this proof-of-work
+                      scheme.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Cumulative work</summary>
+                    <p>
+                      The total work represented by a chain. This node uses it as the fork-choice
+                      rule.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Headers-first sync</summary>
+                    <p>
+                      A sync strategy that compares headers and work before fetching full block
+                      bodies.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Peer directory</summary>
+                    <p>
+                      The peer-authenticated endpoint that returns advertised peers and node
+                      metadata for discovery.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Native P2P transport</summary>
+                    <p>
+                      The TCP-based peer channel that carries signed peer updates, block relay, and
+                      transaction propagation outside the ordinary public HTTP interface.
+                    </p>
+                  </details>
+                  <details class="glossary-item">
+                    <summary>Operational backup</summary>
+                    <p>
+                      A point-in-time SQLite snapshot plus node identity and TLS materials used for
+                      recovery.
+                    </p>
+                  </details>
+                </div>
+              </section>
+            </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
 </html>
