@@ -1,0 +1,362 @@
+:root {
+  --bg: #f3ede2;
+  --panel: rgba(255, 252, 247, 0.92);
+  --panel-strong: #fffdf9;
+  --text: #162119;
+  --muted: #607067;
+  --line: rgba(22, 33, 25, 0.1);
+  --accent: #0f6a52;
+  --accent-soft: rgba(15, 106, 82, 0.12);
+  --copper: #b86a2f;
+  --danger: #992f2f;
+  --shadow: 0 24px 70px rgba(41, 49, 44, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(184, 106, 47, 0.18), transparent 30%),
+    radial-gradient(circle at top right, rgba(15, 106, 82, 0.2), transparent 28%),
+    linear-gradient(180deg, #f8f2e8 0%, var(--bg) 60%, #ece3d5 100%);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.page-shell {
+  width: min(1320px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 420px);
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 249, 240, 0.78)),
+    linear-gradient(140deg, rgba(15, 106, 82, 0.08), rgba(184, 106, 47, 0.08));
+  box-shadow: var(--shadow);
+}
+
+.hero-copy h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.4rem, 4vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.lede {
+  max-width: 60ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hero-mini,
+.metric-card,
+.panel,
+.wallet-card,
+.block-card,
+.peer-item,
+.transaction-item,
+.account-item {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.hero-mini,
+.metric-card {
+  padding: 16px;
+  border-radius: 20px;
+}
+
+.hero-mini strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.4rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.panel {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.panel-wide {
+  grid-column: span 2;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary-button,
+.ghost-button {
+  border-radius: 999px;
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.primary-button {
+  border: none;
+  color: #f8f7f2;
+  background: linear-gradient(135deg, var(--accent), #1e8b67);
+}
+
+.ghost-button {
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.primary-button:hover,
+.ghost-button:hover {
+  transform: translateY(-1px);
+}
+
+.stacked-form,
+.wallet-stack {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+}
+
+label span,
+.metric-label,
+.subtle {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 150px;
+}
+
+.wallet-card {
+  padding: 16px;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(15, 106, 82, 0.08), rgba(255, 255, 255, 0.88)),
+    linear-gradient(135deg, rgba(184, 106, 47, 0.05), transparent);
+}
+
+.wallet-address {
+  margin-top: 10px;
+  word-break: break-word;
+}
+
+.wallet-balance {
+  margin-top: 10px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-value {
+  margin-top: 8px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.status-strip {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.status-strip.invalid {
+  background: rgba(153, 47, 47, 0.12);
+  color: var(--danger);
+}
+
+.peer-list,
+.list-panel,
+.chain-list,
+.tx-list {
+  display: grid;
+  gap: 12px;
+}
+
+.peer-item,
+.transaction-item,
+.account-item,
+.block-card {
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.account-row,
+.block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.list-empty {
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.92rem;
+}
+
+.block-index {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(184, 106, 47, 0.12);
+  color: var(--copper);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.block-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.tx-list {
+  margin-top: 16px;
+}
+
+.tx-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.tx-row.reward {
+  background: rgba(15, 106, 82, 0.1);
+}
+
+@media (max-width: 1100px) {
+  .hero,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-wide {
+    grid-column: auto;
+  }
+
+  .snapshot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(100% - 20px, 1320px);
+    padding-top: 20px;
+  }
+
+  .hero,
+  .panel {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .hero-stats,
+  .snapshot-grid,
+  .block-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-head,
+  .account-row,
+  .block-head,
+  .tx-row {
+    flex-direction: column;
+  }
+}

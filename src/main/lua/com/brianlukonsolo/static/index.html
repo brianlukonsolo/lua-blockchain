@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lua Blockchain Node</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Wallet-backed blockchain node</p>
+        <h1>Lua Blockchain Network Console</h1>
+        <p class="lede">
+          Generate a wallet in the browser, sign transactions locally, mine blocks, propagate them to peers, and inspect account balances in one place.
+        </p>
+      </div>
+      <div class="hero-stats" id="hero-stats"></div>
+    </header>
+
+    <main class="grid">
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Node Snapshot</h2>
+          <div class="action-row">
+            <button class="ghost-button" id="refresh-button" type="button">Refresh</button>
+            <button class="ghost-button" id="validate-button" type="button">Validate</button>
+            <button class="ghost-button" id="sync-button" type="button">Resolve Consensus</button>
+          </div>
+        </div>
+        <div class="snapshot-grid" id="snapshot-grid"></div>
+        <div class="status-strip" id="status-strip">Loading node state...</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Wallet</h2>
+        </div>
+        <div class="wallet-stack">
+          <div class="wallet-card" id="wallet-card">
+            <div class="metric-label">No local wallet loaded</div>
+            <div class="wallet-address mono" id="wallet-address">Generate or import a wallet to sign transactions.</div>
+            <div class="wallet-balance" id="wallet-balance">Balance: n/a</div>
+          </div>
+          <div class="action-row">
+            <button class="primary-button" id="generate-wallet-button" type="button">Generate Wallet</button>
+            <button class="ghost-button" id="export-wallet-button" type="button">Export Wallet</button>
+          </div>
+          <label>
+            <span>Wallet Import / Export</span>
+            <textarea id="wallet-textarea" rows="7" placeholder='Paste exported wallet JSON here'></textarea>
+          </label>
+          <div class="action-row">
+            <button class="ghost-button" id="import-wallet-button" type="button">Import Wallet</button>
+            <button class="ghost-button" id="clear-wallet-button" type="button">Forget Wallet</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Send Signed Transaction</h2>
+        </div>
+        <form id="transaction-form" class="stacked-form">
+          <label>
+            <span>Sender</span>
+            <input name="sender" id="sender-address" placeholder="Generate a wallet first" readonly>
+          </label>
+          <label>
+            <span>Recipient</span>
+            <input name="recipient" placeholder="lbc_..." required>
+          </label>
+          <label>
+            <span>Amount</span>
+            <input name="amount" type="number" min="0.01" step="0.01" placeholder="2.50" required>
+          </label>
+          <label>
+            <span>Fee</span>
+            <input name="fee" type="number" min="0" step="0.01" value="0.10">
+          </label>
+          <label>
+            <span>Note</span>
+            <input name="note" placeholder="Invoice 2026-03">
+          </label>
+          <button class="primary-button" type="submit">Sign And Broadcast</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Mining And Peers</h2>
+        </div>
+        <form id="mine-form" class="stacked-form">
+          <label>
+            <span>Miner Address</span>
+            <input name="miner" id="miner-address" placeholder="lbc_...">
+          </label>
+          <button class="primary-button" type="submit">Mine Pending Transactions</button>
+        </form>
+        <form id="peer-form" class="stacked-form peer-form">
+          <label>
+            <span>Peer URL</span>
+            <input name="peer" placeholder="http://127.0.0.1:8081" required>
+          </label>
+          <button class="ghost-button" type="submit">Register Peer</button>
+        </form>
+        <div class="peer-list" id="peer-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Accounts</h2>
+        </div>
+        <div class="list-panel" id="account-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Mempool</h2>
+        </div>
+        <div class="list-panel" id="pending-list"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Chain Explorer</h2>
+        </div>
+        <div class="chain-list" id="chain-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

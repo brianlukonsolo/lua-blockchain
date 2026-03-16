@@ -87,3 +87,5 @@ src/main/lua/com/brianlukonsolo/logs
 /src/main/lua/com/brianlukonsolo/uwsgi_temp/
 /src/main/lua/com/brianlukonsolo/client_body_temp/
 /src/main/lua/com/brianlukonsolo/fastcgi_temp/
+/src/main/lua/com/brianlukonsolo/*.bak-*
+/src/main/lua/com/brianlukonsolo/*.tmp

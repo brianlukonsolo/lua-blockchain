@@ -1,1 +1,1 @@
-docker exec -it lua-blockchain-instance sh
+docker compose exec lua_blockchain sh

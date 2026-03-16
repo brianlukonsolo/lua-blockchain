@@ -1,13 +1,17 @@
-version: "3.0"
-
 services:
   lua_blockchain:
     container_name: "lua-blockchain-instance"
-    image: "lua_blockchain:latest"
-    tty: true
+    build:
+      context: .
     ports:
-      - 8080:8080
+      - "8080:8080"
+    environment:
+      BLOCKCHAIN_DIFFICULTY: "0000"
+      BLOCKCHAIN_REWARD: "1"
+      BLOCKCHAIN_NODE_ID: "demo-node-1"
+      BLOCKCHAIN_NODE_URL: "http://127.0.0.1:8080"
+      BLOCKCHAIN_DATA_FILE: "/app/blockchain_data.json"
     volumes:
-      - ./src/main/lua/com/brianlukonsolo:/brianlukonsolo
-    command: "sh -c 'cd brianlukonsolo && lapis server'"
-
+      - ./src/main/lua/com/brianlukonsolo:/app
+      - ./src/test:/tests
+    command: ["openresty", "-p", "/app/", "-c", "/app/nginx.conf"]

@@ -1,0 +1,8 @@
+.git
+.gitignore
+.idea
+*.iml
+target
+out
+src/main/lua/com/brianlukonsolo/logs
+src/main/lua/com/brianlukonsolo/*.tmp

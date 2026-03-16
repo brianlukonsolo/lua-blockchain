@@ -1,1 +1,1 @@
-[{"proof":1,"index":1,"timestamp":"genesis block","previous_hash":0}]
+{"chain":[{"hash":"74ca5a1ab0adbf6385e4c67b213ac2a8827f988bc6a2edd7a7b4fdd238278f65","index":1,"previous_hash":"0","proof":1,"timestamp":"genesis block","transactions":[]}],"meta":{"consensus":"longest-valid-chain","difficulty_prefix":"0000","mining_reward":1,"name":"lua-blockchain","node_id":"demo-node-1","node_url":"http:\/\/127.0.0.1:8080","schema_version":3,"updated_at":"2026-03-16T00:42:52Z","version":"3.0.0"},"peers":[],"pending_transactions":[]}
